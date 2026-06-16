@@ -1,9 +1,9 @@
 // ============================================================
 // FLOW — dashboard.js
 // Reads/writes the same Postgres-backed items used by Home
-// (via /api/items, /api/items/[id]). Renders stats, filters,
-// Kanban board, and List view; handles status changes, notes,
-// and archiving.
+// (via /api/items, /api/items/[id], /api/categorize). Renders
+// stats, the collapsible filter panel, Kanban board, List view,
+// relative timestamps, and the floating Quick Add modal.
 // ============================================================
 
 const STATUS_COLUMNS = [
@@ -18,12 +18,13 @@ const CATEGORY_OPTIONS = ["All", "Action Item", "Decision Needed", "Idea", "FYI"
 const PRIORITY_OPTIONS = ["All", "High", "Medium", "Low"];
 const STATUS_OPTIONS = ["All", ...STATUS_COLUMNS.map((c) => c.key)];
 
-// In-memory cache of all (non-archived + archived) items from the database
+// In-memory cache of all items from the database
 let cachedItems = [];
 
 // Active filter + view state
 const filters = { category: "All", priority: "All", status: "All", search: "" };
 let currentView = "kanban";
+let doneCollapsed = true;
 
 // ---- DOM REFERENCES ----
 const inboxBadge = document.getElementById("inboxBadge");
@@ -32,6 +33,9 @@ const statUrgent = document.getElementById("statUrgent");
 const statWaiting = document.getElementById("statWaiting");
 const statCompletedWeek = document.getElementById("statCompletedWeek");
 
+const filterToggleBtn = document.getElementById("filterToggleBtn");
+const filterActiveDot = document.getElementById("filterActiveDot");
+const filterDropdown = document.getElementById("filterDropdown");
 const categoryFilterGroup = document.getElementById("categoryFilterGroup");
 const priorityFilterGroup = document.getElementById("priorityFilterGroup");
 const statusFilterGroup = document.getElementById("statusFilterGroup");
@@ -46,14 +50,26 @@ const dashEmptyState = document.getElementById("dashEmptyState");
 const sidebar = document.getElementById("sidebar");
 const sidebarToggle = document.getElementById("sidebarToggle");
 
+const quickAddBtn = document.getElementById("quickAddBtn");
+const quickAddBackdrop = document.getElementById("quickAddBackdrop");
+const quickAddInput = document.getElementById("quickAddInput");
+const quickAddStatus = document.getElementById("quickAddStatus");
+const quickAddMicBtn = document.getElementById("quickAddMicBtn");
+const quickAddSubmitBtn = document.getElementById("quickAddSubmitBtn");
+
 // ============================================================
 // INIT
 // ============================================================
 async function init() {
   buildFilterPills();
   bindEvents();
+  setupQuickAddVoice();
+
   await fetchItems();
   renderAll();
+
+  // Keep relative timestamps fresh without a full re-render
+  setInterval(refreshTimestamps, 30000);
 }
 
 function buildFilterPills() {
@@ -72,22 +88,52 @@ function buildPillGroup(container, options, filterKey) {
       filters[filterKey] = opt;
       container.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("active"));
       pill.classList.add("active");
+      updateFilterActiveDot();
       renderBoardAndList();
     });
     container.appendChild(pill);
   });
 }
 
+function updateFilterActiveDot() {
+  const hasActiveFilter =
+    filters.category !== "All" ||
+    filters.priority !== "All" ||
+    filters.status !== "All" ||
+    filters.search !== "";
+  filterActiveDot.classList.toggle("visible", hasActiveFilter);
+}
+
 function bindEvents() {
   sidebarToggle.addEventListener("click", () => sidebar.classList.toggle("open"));
 
+  filterToggleBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = filterDropdown.classList.toggle("open");
+    filterToggleBtn.classList.toggle("open", isOpen);
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!filterDropdown.contains(e.target) && !filterToggleBtn.contains(e.target)) {
+      filterDropdown.classList.remove("open");
+      filterToggleBtn.classList.remove("open");
+    }
+  });
+
   searchInput.addEventListener("input", (e) => {
     filters.search = e.target.value.trim().toLowerCase();
+    updateFilterActiveDot();
     renderBoardAndList();
   });
 
   kanbanViewBtn.addEventListener("click", () => switchView("kanban"));
   listViewBtn.addEventListener("click", () => switchView("list"));
+
+  quickAddBtn.addEventListener("click", openQuickAdd);
+  quickAddBackdrop.addEventListener("click", (e) => {
+    if (e.target === quickAddBackdrop) closeQuickAdd();
+  });
+  quickAddSubmitBtn.addEventListener("click", submitQuickAdd);
 }
 
 function switchView(view) {
@@ -121,12 +167,21 @@ async function patchItem(id, fields) {
   if (!response.ok) throw new Error("Failed to update item");
 }
 
+async function postItem(item) {
+  const response = await fetch("/api/items", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(item),
+  });
+  if (!response.ok) throw new Error("Failed to save item");
+}
+
 // ============================================================
 // RENDER ORCHESTRATION
 // ============================================================
 function renderAll() {
   renderInboxBadge();
-  renderStats();
+  renderStats(true);
   renderBoardAndList();
 }
 
@@ -155,9 +210,9 @@ function getFilteredItems() {
 }
 
 // ============================================================
-// STATS ROW
+// STATS ROW — animated count-up
 // ============================================================
-function renderStats() {
+function renderStats(animateFromZero) {
   const active = cachedItems.filter((i) => !i.archived);
 
   const totalActive = active.filter((i) => i.status !== "Done").length;
@@ -171,10 +226,35 @@ function renderStats() {
     (i) => i.status === "Done" && i.completed_at && new Date(i.completed_at).getTime() >= sevenDaysAgo
   ).length;
 
-  statActive.textContent = totalActive;
-  statUrgent.textContent = urgent;
-  statWaiting.textContent = waiting;
-  statCompletedWeek.textContent = completedThisWeek;
+  animateCount(statActive, totalActive, animateFromZero);
+  animateCount(statUrgent, urgent, animateFromZero);
+  animateCount(statWaiting, waiting, animateFromZero);
+  animateCount(statCompletedWeek, completedThisWeek, animateFromZero);
+}
+
+function animateCount(el, target, fromZero) {
+  const start = fromZero ? 0 : Number(el.textContent) || 0;
+  if (start === target) {
+    el.textContent = target;
+    return;
+  }
+
+  const duration = 600;
+  const startTime = performance.now();
+
+  function tick(now) {
+    const progress = Math.min((now - startTime) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+    const value = Math.round(start + (target - start) * eased);
+    el.textContent = value;
+    if (progress < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      el.textContent = target;
+    }
+  }
+
+  requestAnimationFrame(tick);
 }
 
 // ============================================================
@@ -194,24 +274,43 @@ function renderKanban(items) {
 
   STATUS_COLUMNS.forEach((col) => {
     const columnItems = items.filter((i) => i.status === col.key);
+    const isDone = col.key === "Done";
 
     const columnEl = document.createElement("div");
-    columnEl.className = `kanban-column ${col.colClass}`;
+    columnEl.className = `kanban-column ${col.colClass}` + (isDone ? " collapsible" : "");
+
+    const chevronSvg = `
+      <span class="collapse-chevron ${isDone && !doneCollapsed ? "rotated" : ""}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    `;
 
     columnEl.innerHTML = `
       <div class="kanban-column-header">
         <span class="kanban-column-title">${col.key}</span>
-        <span class="kanban-count">${columnItems.length}</span>
+        <div class="kanban-column-header-right">
+          <span class="kanban-count ${isDone ? "done-count" : ""}">${columnItems.length}</span>
+          ${isDone ? chevronSvg : ""}
+        </div>
       </div>
-      <div class="kanban-cards"></div>
+      <div class="kanban-cards fade-in-group"></div>
     `;
 
     const cardsWrap = columnEl.querySelector(".kanban-cards");
 
-    if (columnItems.length === 0) {
+    if (isDone && doneCollapsed) {
+      cardsWrap.innerHTML = `<div class="done-collapsed-placeholder">${columnItems.length} completed — click to view</div>`;
+    } else if (columnItems.length === 0) {
       cardsWrap.innerHTML = `<div class="kanban-empty">No items</div>`;
     } else {
       columnItems.forEach((item) => cardsWrap.appendChild(buildItemCard(item)));
+    }
+
+    if (isDone) {
+      columnEl.querySelector(".kanban-column-header").addEventListener("click", () => {
+        doneCollapsed = !doneCollapsed;
+        renderBoardAndList();
+      });
     }
 
     kanbanBoard.appendChild(columnEl);
@@ -231,7 +330,9 @@ function buildItemCard(item) {
       ? "glow-red"
       : "";
 
-  card.className = `item-card ${glowClass}`;
+  const priorityClass = "priority-" + item.priority.toLowerCase();
+
+  card.className = `item-card ${priorityClass} ${glowClass}`;
   card.dataset.id = item.id;
 
   card.innerHTML = `
@@ -240,15 +341,17 @@ function buildItemCard(item) {
       <span class="badge-pill priority ${item.priority.toLowerCase()}">${item.priority}</span>
     </div>
     <p class="item-card-text">${escapeHtml(item.text)}</p>
-    <p class="item-card-time">${formatTimestamp(item.timestamp)}</p>
+    <p class="item-card-time" data-timestamp="${item.timestamp}" title="${new Date(item.timestamp).toLocaleString()}">${relativeTime(item.timestamp)}</p>
     <div class="item-card-controls">
       <select class="status-select"></select>
-      <button class="icon-action-btn notes-btn" title="Notes" aria-label="Notes">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-      </button>
-      <button class="icon-action-btn archive-btn" title="Archive" aria-label="Archive">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/><path d="M5 9v9a2 2 0 002 2h10a2 2 0 002-2V9" stroke="currentColor" stroke-width="1.8"/><path d="M10 13h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </button>
+      <div class="item-card-actions">
+        <button class="icon-action-btn notes-btn" title="Notes" aria-label="Notes">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="icon-action-btn archive-btn" title="Archive" aria-label="Archive">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/><path d="M5 9v9a2 2 0 002 2h10a2 2 0 002-2V9" stroke="currentColor" stroke-width="1.8"/><path d="M10 13h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
     </div>
     <div class="item-notes">
       <textarea placeholder="Add a note...">${escapeHtml(item.notes || "")}</textarea>
@@ -272,8 +375,9 @@ function buildItemCard(item) {
       await patchItem(item.id, { status: newStatus });
       item.status = newStatus;
       item.completed_at = newStatus === "Done" ? new Date().toISOString() : null;
-      renderStats();
+      renderStats(false);
       renderBoardAndList();
+      bumpColumnCounts();
     } catch (err) {
       console.error("status update error:", err);
     }
@@ -313,6 +417,13 @@ function buildItemCard(item) {
   return card;
 }
 
+function bumpColumnCounts() {
+  document.querySelectorAll(".kanban-count").forEach((el) => {
+    el.classList.add("bump");
+    setTimeout(() => el.classList.remove("bump"), 220);
+  });
+}
+
 // ============================================================
 // LIST VIEW
 // ============================================================
@@ -337,10 +448,10 @@ function renderList(items) {
           </select>
         </td>
         <td class="list-text-cell" title="${escapeHtml(item.text)}">${escapeHtml(item.text)}</td>
-        <td>${formatTimestamp(item.timestamp)}</td>
+        <td data-timestamp="${item.timestamp}" title="${new Date(item.timestamp).toLocaleString()}">${relativeTime(item.timestamp)}</td>
         <td class="list-actions-cell">
           <button class="icon-action-btn list-archive-btn" data-id="${item.id}" title="Archive" aria-label="Archive">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/><path d="M5 9v9a2 2 0 002 2h10a2 2 0 002-2V9" stroke="currentColor" stroke-width="1.8"/><path d="M10 13h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/><path d="M5 9v9a2 2 0 002 2h10a2 2 0 002-2V9" stroke="currentColor" stroke-width="1.8"/><path d="M10 13h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
         </td>
       </tr>
@@ -359,7 +470,7 @@ function renderList(items) {
           item.status = newStatus;
           item.completed_at = newStatus === "Done" ? new Date().toISOString() : null;
         }
-        renderStats();
+        renderStats(false);
         renderBoardAndList();
       } catch (err) {
         console.error("status update error:", err);
@@ -383,19 +494,136 @@ function renderList(items) {
 }
 
 // ============================================================
+// QUICK ADD MODAL
+// ============================================================
+function openQuickAdd() {
+  quickAddBackdrop.classList.add("visible");
+  quickAddInput.value = "";
+  quickAddStatus.textContent = "";
+  quickAddStatus.classList.remove("error");
+  setTimeout(() => quickAddInput.focus(), 150);
+}
+
+function closeQuickAdd() {
+  quickAddBackdrop.classList.remove("visible");
+}
+
+async function submitQuickAdd() {
+  const text = quickAddInput.value.trim();
+  if (!text) return;
+
+  quickAddStatus.textContent = "Processing your thought...";
+  quickAddStatus.classList.remove("error");
+
+  try {
+    const response = await fetch("/api/categorize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) throw new Error("Categorize failed");
+    const data = await response.json();
+
+    const newItem = {
+      id: Date.now(),
+      text,
+      summary: data.summary,
+      category: data.category,
+      priority: data.priority,
+      status: "Not Started",
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
+
+    await postItem(newItem);
+    cachedItems.unshift(newItem);
+    renderAll();
+    closeQuickAdd();
+  } catch (err) {
+    console.error("quick add error:", err);
+    quickAddStatus.textContent = "Could not add — please try again";
+    quickAddStatus.classList.add("error");
+  }
+}
+
+// ---- Voice support inside Quick Add modal ----
+let quickAddRecognition = null;
+let quickAddRecording = false;
+
+function setupQuickAddVoice() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    quickAddMicBtn.style.display = "none";
+    return;
+  }
+
+  quickAddRecognition = new SpeechRecognition();
+  quickAddRecognition.continuous = false;
+  quickAddRecognition.interimResults = false;
+  quickAddRecognition.lang = "en-US";
+
+  quickAddRecognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    quickAddInput.value = (quickAddInput.value + " " + transcript).trim();
+  };
+
+  quickAddRecognition.onerror = () => {
+    quickAddRecording = false;
+    quickAddMicBtn.classList.remove("recording");
+    quickAddStatus.textContent = "Could not capture audio — please try again";
+    quickAddStatus.classList.add("error");
+  };
+
+  quickAddRecognition.onend = () => {
+    quickAddRecording = false;
+    quickAddMicBtn.classList.remove("recording");
+  };
+
+  quickAddMicBtn.addEventListener("click", () => {
+    if (!quickAddRecording) {
+      quickAddRecording = true;
+      quickAddMicBtn.classList.add("recording");
+      try {
+        quickAddRecognition.start();
+      } catch (e) {
+        quickAddRecording = false;
+        quickAddMicBtn.classList.remove("recording");
+      }
+    } else {
+      quickAddRecognition.stop();
+    }
+  });
+}
+
+// ============================================================
+// RELATIVE TIMESTAMPS
+// ============================================================
+function relativeTime(timestamp) {
+  const now = Date.now();
+  const then = new Date(timestamp).getTime();
+  const diffMs = now - then;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMs / 3600000);
+  const diffDay = Math.floor(diffMs / 86400000);
+
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+  if (diffDay === 1) return "Yesterday";
+  return `${diffDay} days ago`;
+}
+
+function refreshTimestamps() {
+  document.querySelectorAll("[data-timestamp]").forEach((el) => {
+    el.textContent = relativeTime(el.dataset.timestamp);
+  });
+}
+
+// ============================================================
 // HELPERS
 // ============================================================
 function categoryClass(category) {
   return "cat-" + category.toLowerCase().replace(/\s+/g, "-");
-}
-
-function formatTimestamp(timestamp) {
-  return new Date(timestamp).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function escapeHtml(str) {
