@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FLOW — Thought Capture</title>
+  <title>FLOW — Dashboard</title>
 
   <!-- Google Font: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="dashboard.css" />
 </head>
 <body>
 
@@ -19,7 +20,7 @@
   <div class="bg-orb orb-2"></div>
   <div class="bg-orb orb-3"></div>
 
-  <!-- ============ TOP BAR ============ -->
+  <!-- ============ TOP BAR (identical to index.html) ============ -->
   <header class="topbar">
     <div class="topbar-left">
       <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
@@ -41,14 +42,14 @@
     </div>
   </header>
 
-  <!-- ============ LEFT SIDEBAR ============ -->
+  <!-- ============ LEFT SIDEBAR (identical to index.html, Dashboard active) ============ -->
   <nav class="sidebar" id="sidebar">
     <ul class="sidebar-nav">
-      <a href="index.html" class="sidebar-item active" data-tooltip="">
+      <a href="index.html" class="sidebar-item">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 12l9-9 9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 10v10a1 1 0 001 1h12a1 1 0 001-1V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Home</span>
       </a>
-      <a href="dashboard.html" class="sidebar-item">
+      <a href="dashboard.html" class="sidebar-item active">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="9" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="12" width="7" height="9" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="16" width="7" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/></svg>
         <span>Dashboard</span>
       </a>
@@ -73,12 +74,12 @@
     </div>
   </nav>
 
-  <!-- ============ MOBILE BOTTOM NAV ============ -->
+  <!-- ============ MOBILE BOTTOM NAV (identical to index.html, Dashboard active) ============ -->
   <nav class="bottom-nav">
-    <a href="index.html" class="bottom-nav-item active">
+    <a href="index.html" class="bottom-nav-item">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 12l9-9 9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 10v10a1 1 0 001 1h12a1 1 0 001-1V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
-    <a href="dashboard.html" class="bottom-nav-item">
+    <a href="dashboard.html" class="bottom-nav-item active">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="9" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="12" width="7" height="9" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="16" width="7" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/></svg>
     </a>
     <div class="bottom-nav-item disabled">
@@ -89,108 +90,111 @@
     </div>
   </nav>
 
-  <!-- ============ MAIN CONTENT ============ -->
-  <main class="main" id="main">
-    <section class="greeting">
-      <h1 id="greetingHeading">What's on your mind?</h1>
-      <p class="greeting-sub">Share a thought, an idea, something that needs doing, or anything on your mind</p>
-    </section>
+  <!-- ============ DASHBOARD MAIN CONTENT ============ -->
+  <main class="dash-main" id="dashMain">
 
-    <!-- Voice capture hero -->
-    <section class="voice-section">
-      <button class="voice-btn" id="voiceBtn" aria-label="Start recording">
-        <span class="voice-glow"></span>
-        <span class="voice-wave" id="voiceWave"></span>
-        <svg id="micIcon" width="36" height="36" viewBox="0 0 24 24" fill="none"><path d="M12 1a4 4 0 00-4 4v6a4 4 0 008 0V5a4 4 0 00-4-4z" stroke="currentColor" stroke-width="1.8"/><path d="M19 10v1a7 7 0 01-14 0v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 18v4M8 22h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        <svg id="stopIcon" width="30" height="30" viewBox="0 0 24 24" fill="none" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
-        <span class="spinner" id="voiceSpinner" style="display:none"></span>
-      </button>
-      <p class="voice-hint" id="voiceHint">Tap to start speaking</p>
-    </section>
+    <div class="dash-header">
+      <h1>Dashboard</h1>
+      <p>Track, filter, and manage everything you've captured</p>
+    </div>
 
-    <!-- Text input secondary option -->
-    <section class="text-input-section">
-      <form id="textForm" class="text-form">
-        <input type="text" id="textInput" placeholder="Or type something here..." autocomplete="off" />
-        <button type="submit" class="send-btn" aria-label="Send">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-      </form>
-    </section>
-
-    <!-- Result card (hidden by default) -->
-    <section class="result-card" id="resultCard">
-      <div class="result-card-inner">
-        <div class="result-badges">
-          <span class="badge-pill" id="resultCategory">Idea</span>
-          <span class="badge-pill priority" id="resultPriority">Medium</span>
+    <!-- Top stats row -->
+    <section class="stats-row" id="statsRow">
+      <div class="stat-box accent-purple">
+        <div class="stat-box-top">
+          <div class="stat-box-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/></svg>
+          </div>
         </div>
-        <p class="result-text" id="resultText" contenteditable="false"></p>
-        <p class="result-timestamp" id="resultTimestamp"></p>
-        <div class="result-actions">
-          <button class="btn-secondary" id="editBtn">Edit</button>
-          <button class="btn-danger" id="dismissBtn">Dismiss</button>
-          <button class="btn-primary" id="confirmBtn">Confirm</button>
+        <div class="stat-box-value" id="statActive">0</div>
+        <div class="stat-box-label">Total Active Items</div>
+      </div>
+
+      <div class="stat-box accent-red">
+        <div class="stat-box-top">
+          <div class="stat-box-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 9v4M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/></svg>
+          </div>
         </div>
+        <div class="stat-box-value" id="statUrgent">0</div>
+        <div class="stat-box-label">Urgent Items</div>
+      </div>
+
+      <div class="stat-box accent-amber">
+        <div class="stat-box-top">
+          <div class="stat-box-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+        <div class="stat-box-value" id="statWaiting">0</div>
+        <div class="stat-box-label">Waiting On Input</div>
+      </div>
+
+      <div class="stat-box accent-green">
+        <div class="stat-box-top">
+          <div class="stat-box-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="stat-box-value" id="statCompletedWeek">0</div>
+        <div class="stat-box-label">Completed This Week</div>
       </div>
     </section>
 
-    <!-- Processing / error states -->
-    <section class="status-banner" id="statusBanner"></section>
-
-    <!-- Recent captures -->
-    <section class="recent-section">
-      <h2>Recent Captures</h2>
-      <div class="recent-list" id="recentList">
-        <p class="empty-state">Nothing captured yet — tap the button above to get started</p>
+    <!-- Filter bar -->
+    <section class="filter-bar">
+      <div class="filter-group" id="categoryFilterGroup" data-filter="category">
+        <span class="filter-group-label">Category</span>
+      </div>
+      <div class="filter-group" id="priorityFilterGroup" data-filter="priority">
+        <span class="filter-group-label">Priority</span>
+      </div>
+      <div class="filter-group" id="statusFilterGroup" data-filter="status">
+        <span class="filter-group-label">Status</span>
+      </div>
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="text" id="searchInput" placeholder="Search captures..." autocomplete="off" />
       </div>
     </section>
-  </main>
 
-  <!-- ============ LOGIN DIGEST MODAL ============ -->
-  <div class="modal-backdrop" id="modalBackdrop">
-    <div class="modal" id="digestModal">
-      <h2 id="digestGreeting">Welcome back</h2>
-      <p class="digest-date" id="digestDate"></p>
-
-      <div class="stat-grid">
-        <div class="stat-card">
-          <div class="stat-icon green">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </div>
-          <div class="stat-value" id="statCompleted">0</div>
-          <div class="stat-label">Items Completed</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon blue">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-          </div>
-          <div class="stat-value" id="statNew">0</div>
-          <div class="stat-label">New Items Added</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon orange">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          </div>
-          <div class="stat-value" id="statWaiting">0</div>
-          <div class="stat-label">Waiting Your Input</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon red">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-          </div>
-          <div class="stat-value" id="statBlocked">0</div>
-          <div class="stat-label">Blocked Items</div>
-        </div>
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn-secondary" id="dismissModalBtn">Dismiss</button>
-        <button class="btn-primary" id="startCapturingBtn">Start Capturing</button>
+    <!-- View toggle -->
+    <div class="view-toggle-row">
+      <div class="view-toggle">
+        <button class="view-toggle-btn active" id="kanbanViewBtn">Kanban</button>
+        <button class="view-toggle-btn" id="listViewBtn">List</button>
       </div>
     </div>
-  </div>
 
-  <script src="app.js"></script>
+    <!-- Kanban board -->
+    <section class="kanban-board" id="kanbanBoard"></section>
+
+    <!-- List view -->
+    <section class="list-view-wrap" id="listViewWrap" style="display:none;">
+      <table class="list-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Text</th>
+            <th>Timestamp</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="listTableBody"></tbody>
+      </table>
+    </section>
+
+    <!-- Empty state -->
+    <section class="dash-empty-state" id="dashEmptyState" style="display:none;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M22 12h-6l-2 3h-4l-2-3H2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <p>Nothing captured yet — head to Home to get started</p>
+      <a href="index.html">Go to Home →</a>
+    </section>
+
+  </main>
+
+  <script src="dashboard.js"></script>
 </body>
 </html>

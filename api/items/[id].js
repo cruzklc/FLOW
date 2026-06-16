@@ -1,6 +1,8 @@
 // ============================================================
 // /api/items/[id] — Vercel serverless function
-// PATCH  -> updates status and/or read flag for a single item
+// PATCH  -> updates status, read, notes, and/or archived for an item.
+//           Setting status to "Done" stamps completed_at; moving away
+//           from "Done" clears it (used for the "Completed This Week" stat).
 // DELETE -> removes a single item
 // ============================================================
 
@@ -12,13 +14,20 @@ module.exports = async function handler(req, res) {
   const { id } = req.query;
 
   if (req.method === "PATCH") {
-    const { status, read } = req.body || {};
+    const { status, read, notes, archived } = req.body || {};
 
     try {
       await sql`
         UPDATE items
         SET status = COALESCE(${status}, status),
-            read = COALESCE(${read}, read)
+            read = COALESCE(${read}, read),
+            notes = COALESCE(${notes}, notes),
+            archived = COALESCE(${archived}, archived),
+            completed_at = CASE
+              WHEN ${status}::text = 'Done' THEN NOW()
+              WHEN ${status}::text IS NOT NULL THEN NULL
+              ELSE completed_at
+            END
         WHERE id = ${id}
       `;
       res.status(200).json({ success: true });
