@@ -2,5 +2,8 @@
   "name": "flow",
   "version": "1.0.0",
   "description": "FLOW — voice-first CEO thought capture tool",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  }
 }

@@ -1,8 +1,9 @@
 // ============================================================
 // FLOW — app.js
 // All client-side functionality: voice capture, text capture,
-// Claude categorization (via /api/categorize), localStorage,
-// login digest modal, and UI rendering.
+// Claude categorization (via /api/categorize), persistent storage
+// (via /api/items, backed by Postgres), login digest modal, and
+// UI rendering.
 // ============================================================
 
 // ---- EASY-TO-EDIT CONFIG -----------------------------------
@@ -10,7 +11,9 @@
 const USER_NAME = "Kevin";
 // --------------------------------------------------------------
 
-const STORAGE_KEY = "flow_items";
+// In-memory cache of items fetched from the database — refreshed
+// on load and whenever a new item is confirmed.
+let cachedItems = [];
 
 // ---- DOM REFERENCES ----
 const sidebar = document.getElementById("sidebar");
@@ -57,44 +60,48 @@ let pendingItem = null;
 // ============================================================
 // INITIALIZATION
 // ============================================================
-function init() {
+async function init() {
   userNameLabel.textContent = USER_NAME;
   userAvatar.textContent = USER_NAME.charAt(0).toUpperCase();
   greetingHeading.textContent = `What's on your mind, ${USER_NAME}?`;
 
+  setupVoiceRecognition();
+  bindEvents();
+
+  await fetchItems();
   renderInboxBadge();
   renderRecentCaptures();
   showDigestModal();
-  setupVoiceRecognition();
-  bindEvents();
 }
 
 // ============================================================
-// LOCALSTORAGE HELPERS
+// DATABASE HELPERS (via /api/items, backed by Postgres)
 // ============================================================
-function getItems() {
+async function fetchItems() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  } catch (e) {
-    return [];
+    const response = await fetch("/api/items");
+    if (!response.ok) throw new Error("Failed to fetch items");
+    cachedItems = await response.json();
+  } catch (err) {
+    console.error("fetchItems error:", err);
+    cachedItems = [];
   }
 }
 
-function saveItems(items) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-}
-
-function addItem(item) {
-  const items = getItems();
-  items.unshift(item);
-  saveItems(items);
+async function postItem(item) {
+  const response = await fetch("/api/items", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(item),
+  });
+  if (!response.ok) throw new Error("Failed to save item");
 }
 
 // ============================================================
-// LOGIN DIGEST MODAL — reads real stats from localStorage
+// LOGIN DIGEST MODAL — reads real stats from the database
 // ============================================================
 function showDigestModal() {
-  const items = getItems();
+  const items = cachedItems;
 
   const completed = items.filter((i) => i.status === "Completed").length;
   const newToday = items.filter((i) => isToday(i.timestamp)).length;
@@ -135,8 +142,7 @@ function closeDigestModal() {
 // INBOX BADGE — count of unread items
 // ============================================================
 function renderInboxBadge() {
-  const items = getItems();
-  const unread = items.filter((i) => !i.read).length;
+  const unread = cachedItems.filter((i) => !i.read).length;
   inboxBadge.textContent = unread;
   inboxBadge.classList.toggle("hidden", unread === 0);
 }
@@ -339,15 +345,20 @@ function dismissResultCard() {
   resetVoiceUI();
 }
 
-function confirmResultCard() {
+async function confirmResultCard() {
   if (!pendingItem) return;
 
   // Capture any inline edit before saving
   pendingItem.text = resultText.textContent;
 
-  addItem(pendingItem);
-  renderInboxBadge();
-  renderRecentCaptures();
+  try {
+    await postItem(pendingItem);
+    cachedItems.unshift(pendingItem);
+    renderInboxBadge();
+    renderRecentCaptures();
+  } catch (err) {
+    showStatus("Could not save — please try again", true);
+  }
 
   pendingItem = null;
   hideResultCard();
@@ -358,7 +369,7 @@ function confirmResultCard() {
 // RECENT CAPTURES LIST
 // ============================================================
 function renderRecentCaptures() {
-  const items = getItems().slice(0, 5);
+  const items = cachedItems.slice(0, 5);
 
   if (items.length === 0) {
     recentList.innerHTML = `<p class="empty-state">Nothing captured yet — tap the button above to get started</p>`;
