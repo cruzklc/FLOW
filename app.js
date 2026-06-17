@@ -234,19 +234,8 @@ function showMicDeniedModal() {
       showMicDeniedModal();
       return;
     }
-    // Permission granted — start recording since that was the user's original intent
-    finalTranscript = "";
-    interimTranscript = "";
-    startRecordingUI();
-    if (!_recognitionActive) {
-      try {
-        recognition.start();
-        _recognitionActive = true;
-      } catch (e) {
-        stopRecordingUI();
-        resetVoiceUI();
-      }
-    }
+    // Permission granted — reset to clean idle so the user can tap normally
+    resetVoiceUI();
   });
 
   document.getElementById("micDeniedText").addEventListener("click", () => {
@@ -349,15 +338,18 @@ async function handleVoiceButtonClick() {
   if (!recognition) return;
 
   if (!isRecording) {
-    // Check permission before starting
-    const state = await getMicPermissionState();
-    if (state === "denied") {
-      showMicDeniedModal();
-      return;
-    }
-    if (state === "prompt" && !localStorage.getItem(MIC_ASKED_KEY)) {
-      showMicExplainerModal();
-      return;
+    // If we already got a stream this session, trust it and skip the Permissions API
+    // (iOS can return stale "denied" from Permissions API even after user allows)
+    if (!_micGranted) {
+      const state = await getMicPermissionState();
+      if (state === "denied") {
+        showMicDeniedModal();
+        return;
+      }
+      if (state === "prompt" && !localStorage.getItem(MIC_ASKED_KEY)) {
+        showMicExplainerModal();
+        return;
+      }
     }
 
     finalTranscript   = "";
