@@ -4,16 +4,12 @@
 // Postgres, login digest modal, and recent captures list.
 // ============================================================
 
-const USER_NAME = "Kevin";
-
 let cachedItems = [];
 
 // ---- DOM REFERENCES ----
 const sidebar = document.getElementById("sidebar");
 const sidebarToggle = document.getElementById("sidebarToggle");
 const inboxBadge = document.getElementById("inboxBadge");
-const userNameLabel = document.getElementById("userNameLabel");
-const userAvatar = document.getElementById("userAvatar");
 const greetingHeading = document.getElementById("greetingHeading");
 
 const voiceBtn = document.getElementById("voiceBtn");
@@ -33,9 +29,8 @@ const recentList = document.getElementById("recentList");
 // INITIALIZATION
 // ============================================================
 async function init() {
-  userNameLabel.textContent = USER_NAME;
-  userAvatar.textContent = USER_NAME.charAt(0).toUpperCase();
-  greetingHeading.textContent = `What's on your mind, ${USER_NAME}?`;
+  const session = getSession();
+  greetingHeading.textContent = `What's on your mind, ${session ? session.name : ""}?`;
 
   setupVoiceRecognition();
   bindEvents();
@@ -209,6 +204,7 @@ async function processCapture(text) {
 
     const data = await response.json();
 
+    const session = getSession();
     const newItem = {
       id: Date.now(),
       text: text,
@@ -218,6 +214,7 @@ async function processCapture(text) {
       status: "Not Started",
       timestamp: new Date().toISOString(),
       read: false,
+      created_by: session ? session.id : null,
     };
 
     await postItem(newItem);
@@ -299,4 +296,4 @@ function escapeHtml(str) {
 // ============================================================
 // BOOT
 // ============================================================
-document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("DOMContentLoaded", () => initIdentity(init));

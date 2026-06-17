@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === "POST") {
-    const { id, text, summary, category, priority, status, timestamp, read } =
+    const { id, text, summary, category, priority, status, timestamp, read, created_by } =
       req.body || {};
 
     if (!id || !text || !summary || !category || !priority || !timestamp) {
@@ -31,8 +31,8 @@ module.exports = async function handler(req, res) {
 
     try {
       await sql`
-        INSERT INTO items (id, text, summary, category, priority, status, timestamp, read)
-        VALUES (${id}, ${text}, ${summary}, ${category}, ${priority}, ${status || "New"}, ${timestamp}, ${read ?? false})
+        INSERT INTO items (id, text, summary, category, priority, status, timestamp, read, created_by)
+        VALUES (${id}, ${text}, ${summary}, ${category}, ${priority}, ${status || "New"}, ${timestamp}, ${read ?? false}, ${created_by || null})
       `;
       res.status(201).json({ success: true });
     } catch (err) {

@@ -754,6 +754,135 @@ input { font-family: inherit; }
   justify-content: flex-end;
 }
 
+/* ============ IDENTITY MODAL ============ */
+.identity-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 14, 22, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+.identity-backdrop.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.identity-modal {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 40px 36px;
+  width: 90%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.6), 0 0 60px rgba(124,58,237,0.15);
+  transform: scale(0.94) translateY(12px);
+  transition: transform 0.35s ease;
+}
+.identity-backdrop.visible .identity-modal {
+  transform: scale(1) translateY(0);
+}
+
+.identity-modal-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.logo-text-id {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 1px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.identity-title {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  letter-spacing: -0.3px;
+}
+
+.identity-sub {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0 0 28px;
+}
+
+.identity-input {
+  width: 100%;
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text-primary);
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  margin-bottom: 8px;
+}
+.identity-input::placeholder { color: var(--text-muted); }
+.identity-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+}
+
+.identity-error {
+  font-size: 12px;
+  color: var(--badge-urgent);
+  min-height: 16px;
+  margin: 0 0 12px;
+}
+
+.identity-continue-btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 12px;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+.identity-continue-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+}
+
+/* ============ SWITCH USER BUTTON ============ */
+.switch-user-btn {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  margin-left: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.switch-user-btn:hover {
+  color: var(--text-primary);
+  border-color: rgba(124,58,237,0.4);
+  background: var(--surface-light);
+}
+
 /* ============ TOAST NOTIFICATION ============ */
 .toast {
   position: fixed;

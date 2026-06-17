@@ -6,8 +6,9 @@
 // ============================================================
 
 const STORAGE_KEY = "flow_inbox_threads";
-const CURRENT_USER = "Kevin";
-const OTHER_USER = "Amit";
+function getCurrentUserName() {
+  return getSession()?.name || "";
+}
 
 // ---- STATE ----
 let threads = [];
@@ -193,8 +194,9 @@ function populateItemLinkSelect() {
 // INBOX BADGE
 // ============================================================
 function getUnreadCount() {
+  const myName = getCurrentUserName().toLowerCase();
   return threads.reduce((count, thread) => {
-    return count + thread.messages.filter((m) => !m.read && m.sender !== CURRENT_USER).length;
+    return count + thread.messages.filter((m) => !m.read && m.sender.toLowerCase() !== myName).length;
   }, 0);
 }
 
@@ -280,8 +282,9 @@ function openThread(threadId) {
   // Mark all incoming messages as read
   const thread = threads.find((t) => t.id === threadId);
   if (!thread) return;
+  const myName = getCurrentUserName().toLowerCase();
   thread.messages.forEach((m) => {
-    if (m.sender !== CURRENT_USER) m.read = true;
+    if (m.sender.toLowerCase() !== myName) m.read = true;
   });
   saveThreads();
   renderInboxBadge();
@@ -339,7 +342,7 @@ function renderConversation(thread) {
 }
 
 function appendMessageBubble(msg, animate = true) {
-  const isKevin = msg.sender === CURRENT_USER;
+  const isKevin = msg.sender.toLowerCase() === getCurrentUserName().toLowerCase();
   const wrap = document.createElement("div");
   wrap.className = `message-bubble-wrap ${isKevin ? "from-kevin" : "from-amit"}`;
   if (!animate) wrap.style.animation = "none";
@@ -375,7 +378,8 @@ function sendMessage() {
 
   const msg = {
     id: "msg_" + Date.now(),
-    sender: CURRENT_USER,
+    sender: getCurrentUserName(),
+    sender_id: getSession()?.id || null,
     text,
     timestamp: new Date().toISOString(),
     read: true,
@@ -427,7 +431,8 @@ function createThread() {
     messages: [
       {
         id: "msg_" + Date.now(),
-        sender: CURRENT_USER,
+        sender: getCurrentUserName(),
+        sender_id: getSession()?.id || null,
         text: firstMsg,
         timestamp: new Date().toISOString(),
         read: true,
@@ -510,4 +515,4 @@ function escapeHtml(str) {
 // ============================================================
 // BOOT
 // ============================================================
-document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("DOMContentLoaded", () => initIdentity(init));

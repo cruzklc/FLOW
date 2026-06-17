@@ -540,6 +540,7 @@ async function submitQuickAdd() {
     if (!response.ok) throw new Error("Categorize failed");
     const data = await response.json();
 
+    const session = getSession();
     const newItem = {
       id: Date.now(),
       text,
@@ -549,6 +550,7 @@ async function submitQuickAdd() {
       status: "Not Started",
       timestamp: new Date().toISOString(),
       read: false,
+      created_by: session ? session.id : null,
     };
 
     await postItem(newItem);
@@ -651,4 +653,4 @@ function escapeHtml(str) {
 // ============================================================
 // BOOT
 // ============================================================
-document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("DOMContentLoaded", () => initIdentity(init));
