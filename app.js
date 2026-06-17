@@ -32,6 +32,7 @@ async function init() {
   const session = getSession();
   greetingHeading.textContent = `What's on your mind, ${session ? session.name : ""}?`;
 
+  await warmMicPermission();
   setupVoiceRecognition();
   bindEvents();
   bindRecentListEvents();
@@ -102,10 +103,28 @@ function bindEvents() {
 }
 
 // ============================================================
+// MIC PERMISSION — warm up once so repeated taps don't re-prompt
+// ============================================================
+let _micStream = null;
+
+async function warmMicPermission() {
+  if (!navigator.mediaDevices?.getUserMedia) return;
+  try {
+    _micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Keep alive — SpeechRecognition reuses this grant without prompting
+  } catch {
+    // User denied or not available — SpeechRecognition will handle it
+  }
+}
+
+// ============================================================
 // WEB SPEECH API — VOICE CAPTURE
 // ============================================================
-let recognition = null;
-let isRecording = false;
+let recognition   = null;
+let isRecording   = false;
+let finalTranscript   = "";
+let interimTranscript = "";
+let _recognitionActive = false; // guard against double-start
 
 function setupVoiceRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -118,23 +137,57 @@ function setupVoiceRecognition() {
   }
 
   recognition = new SpeechRecognition();
-  recognition.continuous = false;
-  recognition.interimResults = false;
-  recognition.lang = "en-US";
+  recognition.continuous     = true;
+  recognition.interimResults = true;
+  recognition.lang           = "en-US";
+  recognition.maxAlternatives = 1;
 
   recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    processCapture(transcript);
+    interimTranscript = "";
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const text = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += text + " ";
+      } else {
+        interimTranscript += text;
+      }
+    }
+    // Show live transcript in the hint area
+    const display = (finalTranscript + interimTranscript).trim();
+    if (display) {
+      voiceHint.textContent = display;
+      voiceHint.classList.add("transcript-live");
+    }
+    // Actively speaking — remove the pause indicator
+    voiceBtn.classList.remove("recording-paused");
+    voiceBtn.classList.add("recording");
   };
 
-  recognition.onerror = () => {
+  recognition.onspeechend = () => {
+    // Speech paused — soften the animation but keep recording
+    if (isRecording) {
+      voiceBtn.classList.add("recording-paused");
+    }
+  };
+
+  recognition.onerror = (event) => {
+    // "no-speech" is normal during pauses — don't treat as fatal
+    if (event.error === "no-speech") return;
+    // "aborted" fires when we manually stop — ignore
+    if (event.error === "aborted") return;
     stopRecordingUI();
     showStatus("Could not capture audio — please try again", true);
   };
 
   recognition.onend = () => {
+    _recognitionActive = false;
     if (isRecording) {
-      stopRecordingUI();
+      // Browser auto-stopped (silence / mobile timeout) — restart immediately
+      voiceBtn.classList.add("recording-paused");
+      try {
+        recognition.start();
+        _recognitionActive = true;
+      } catch { /* already restarting */ }
     }
   };
 }
@@ -143,45 +196,65 @@ function handleVoiceButtonClick() {
   if (!recognition) return;
 
   if (!isRecording) {
+    finalTranscript   = "";
+    interimTranscript = "";
     startRecordingUI();
-    try {
-      recognition.start();
-    } catch (e) {
-      stopRecordingUI();
+    if (!_recognitionActive) {
+      try {
+        recognition.start();
+        _recognitionActive = true;
+      } catch (e) {
+        stopRecordingUI();
+      }
     }
   } else {
-    recognition.stop();
+    // User tapped stop — commit whatever we have
+    isRecording = false;
+    _recognitionActive = false;
+    try { recognition.stop(); } catch { /* already stopped */ }
+
+    const captured = (finalTranscript + interimTranscript).trim();
     stopRecordingUI();
+    if (captured) {
+      processCapture(captured);
+    }
+    finalTranscript   = "";
+    interimTranscript = "";
   }
 }
 
 function startRecordingUI() {
   isRecording = true;
   voiceBtn.classList.add("recording");
-  micIcon.style.display = "none";
-  stopIcon.style.display = "block";
+  voiceBtn.classList.remove("recording-paused");
+  micIcon.style.display     = "none";
+  stopIcon.style.display    = "block";
   voiceSpinner.style.display = "none";
-  voiceHint.textContent = "Tap to stop recording";
+  voiceHint.textContent = "Listening… tap to stop";
+  voiceHint.classList.remove("transcript-live");
 }
 
 function stopRecordingUI() {
   isRecording = false;
-  voiceBtn.classList.remove("recording");
+  voiceBtn.classList.remove("recording", "recording-paused");
   stopIcon.style.display = "none";
+  voiceHint.classList.remove("transcript-live");
 }
 
 function showProcessingUI() {
-  micIcon.style.display = "none";
-  stopIcon.style.display = "none";
+  micIcon.style.display     = "none";
+  stopIcon.style.display    = "none";
   voiceSpinner.style.display = "block";
   voiceHint.textContent = "Processing your thought...";
+  voiceHint.classList.remove("transcript-live");
 }
 
 function resetVoiceUI() {
-  micIcon.style.display = "block";
-  stopIcon.style.display = "none";
+  micIcon.style.display     = "block";
+  stopIcon.style.display    = "none";
   voiceSpinner.style.display = "none";
   voiceHint.textContent = "Tap to start speaking";
+  voiceHint.classList.remove("transcript-live");
 }
 
 // ============================================================
