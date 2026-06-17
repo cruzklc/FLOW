@@ -78,11 +78,18 @@ async function init() {
 
   setInterval(refreshTimestamps, 30000);
 
-  // Re-render on resize so desktop↔mobile transitions correctly
-  let resizeTimer;
+  // Only re-render on orientation change (not every scroll-driven resize event)
+  window.addEventListener("orientationchange", () => {
+    setTimeout(() => renderBoardAndList(), 300);
+  });
+  // On desktop, re-render when crossing the 700px mobile breakpoint
+  let _lastMobile = isMobile();
   window.addEventListener("resize", () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => renderBoardAndList(), 120);
+    const nowMobile = isMobile();
+    if (nowMobile !== _lastMobile) {
+      _lastMobile = nowMobile;
+      renderBoardAndList();
+    }
   });
 }
 
@@ -353,20 +360,29 @@ function switchMobileCol(idx, items, direction) {
 }
 
 function bindKanbanSwipe() {
-  let startX = 0, startY = 0;
+  let startX = 0, startY = 0, lockedAxis = null;
+
   kanbanBoard.addEventListener("touchstart", (e) => {
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
+    lockedAxis = null;
+  }, { passive: true });
+
+  kanbanBoard.addEventListener("touchmove", (e) => {
+    if (!isMobile() || lockedAxis) return;
+    const dx = Math.abs(e.touches[0].clientX - startX);
+    const dy = Math.abs(e.touches[0].clientY - startY);
+    // Lock axis after 8px of movement so we don't misread diagonals
+    if (dx > 8 || dy > 8) lockedAxis = dx > dy ? "x" : "y";
   }, { passive: true });
 
   kanbanBoard.addEventListener("touchend", (e) => {
-    if (!isMobile()) return;
+    if (!isMobile() || lockedAxis !== "x") return;
     const dx = e.changedTouches[0].clientX - startX;
-    const dy = e.changedTouches[0].clientY - startY;
-    if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return; // not a horizontal swipe
+    if (Math.abs(dx) < 44) return; // require at least 44px horizontal travel
     const items = getFilteredItems();
-    if (dx < 0) switchMobileCol(activeMobileCol + 1, items, "left");   // swipe left → next
-    else        switchMobileCol(activeMobileCol - 1, items, "right");  // swipe right → prev
+    if (dx < 0) switchMobileCol(activeMobileCol + 1, items, "left");
+    else        switchMobileCol(activeMobileCol - 1, items, "right");
   }, { passive: true });
 }
 

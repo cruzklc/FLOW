@@ -11,7 +11,7 @@
   --status-done: #10B981;
 }
 
-* { transition-timing-function: ease; }
+/* Avoid reflow-heavy transition:all — specify only compositor-safe properties */
 
 /* ============ DASHBOARD MAIN WRAPPER ============ */
 .dash-main {
@@ -21,6 +21,8 @@
   padding-top: var(--topbar-height);
   min-height: 100vh;
   padding: calc(var(--topbar-height) + 32px) 32px 80px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: auto;
 }
 
 .dash-header {
@@ -146,7 +148,7 @@
   font-size: 13px;
   font-weight: 600;
   position: relative;
-  transition: all 0.25s ease;
+  transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .filter-toggle-btn:hover {
   color: var(--text-primary);
@@ -228,7 +230,7 @@
   color: var(--text-muted);
   background: var(--surface-light);
   border: 1px solid var(--border);
-  transition: all 0.25s ease;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   white-space: nowrap;
 }
 
@@ -289,7 +291,7 @@
   font-size: 12.5px;
   font-weight: 600;
   color: var(--text-muted);
-  transition: all 0.25s ease;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .view-toggle-btn.active {
@@ -405,6 +407,8 @@
   overflow-y: auto;
   flex: 1;
   padding-right: 2px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .kanban-cards::-webkit-scrollbar { width: 5px; }
@@ -432,8 +436,10 @@
   justify-content: center;
 }
 
-.kanban-cards.fade-in-group .item-card {
-  animation: fadeIn 0.3s ease;
+/* Cards animate in only when the column first appears, not on every re-render */
+.kanban-column.mobile-active.slide-in-left .item-card,
+.kanban-column.mobile-active.slide-in-right .item-card {
+  animation: none;
 }
 
 /* ============ ITEM CARD ============ */
@@ -444,8 +450,11 @@
   border-left: 3px solid var(--priority-stripe-color, transparent);
   border-radius: 12px;
   padding: 14px;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-  animation: fadeIn 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  /* No per-card animation — the column fade-in is enough; re-rendering
+     individual cards shouldn't replay a fly-in each time */
+  will-change: transform;
+  contain: layout style;
 }
 
 .item-card.priority-high { --priority-stripe-color: var(--priority-high); box-shadow: -2px 0 10px rgba(239,68,68,0.12); }
@@ -534,7 +543,7 @@
   background-repeat: no-repeat;
   background-position: right 8px center;
   padding-right: 22px;
-  transition: all 0.25s ease;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .status-select:hover, .status-select:focus {
   color: var(--text-primary);
@@ -564,7 +573,7 @@
   color: var(--text-muted);
   background: var(--surface);
   border: 1px solid var(--border);
-  transition: all 0.25s ease;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   flex-shrink: 0;
 }
 .icon-action-btn:hover {
@@ -878,7 +887,8 @@
 @media (max-width: 700px) {
   /* Stats 2×2 grid */
   .stats-row { grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-  .stat-box { padding: 14px 16px; }
+  /* Disable stat-box entrance animations on mobile — they replay on every re-render */
+  .stat-box { padding: 14px 16px; animation: none; opacity: 1; transform: none; }
 
   /* Filter + view toggle row — bigger touch targets */
   .filter-toggle-btn { min-height: 44px; padding: 0 16px; font-size: 14px; }
@@ -887,19 +897,26 @@
 
   /* Kanban: single column, no horizontal scroll */
   .kanban-board {
-    display: block;        /* columns positioned by JS show/hide */
+    display: block;
     overflow-x: hidden;
     overflow-y: visible;
+    overscroll-behavior-x: none;
   }
   .kanban-column {
-    max-height: none;      /* let cards stack freely */
+    max-height: none;
     border-radius: 16px;
-    animation: none;       /* slide-in handled per-column */
+    animation: none;
     opacity: 1;
     transform: none;
+    /* Promote to own layer so scroll painting is isolated */
+    will-change: transform;
   }
   .kanban-column.mobile-active.slide-in-left  { animation: slideInLeft  0.22s ease forwards; }
   .kanban-column.mobile-active.slide-in-right { animation: slideInRight 0.22s ease forwards; }
+
+  /* Disable hover effects on mobile — they cause repaint on touch */
+  .item-card:hover { transform: none; box-shadow: inherit; }
+  .stat-box:hover  { transform: none; box-shadow: none; }
 
   /* Cards full-width, easier to tap */
   .item-card { padding: 14px 16px; }
