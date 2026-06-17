@@ -356,7 +356,7 @@ function buildItemCard(item) {
       <span class="badge-pill ${categoryClass(item.category)}">${item.category}</span>
       <span class="badge-pill priority ${item.priority.toLowerCase()}">${item.priority}</span>
     </div>
-    <p class="item-card-text">${escapeHtml(item.text)}</p>
+    <p class="item-card-text" title="${escapeHtml(item.text)}">${escapeHtml(item.summary || item.text)}</p>
     <p class="item-card-time" data-timestamp="${item.timestamp}" title="${new Date(item.timestamp).toLocaleString()}">${relativeTime(item.timestamp)}</p>
     <div class="item-card-controls">
       <select class="status-select"></select>
@@ -463,7 +463,7 @@ function renderList(items) {
             ).join("")}
           </select>
         </td>
-        <td class="list-text-cell" title="${escapeHtml(item.text)}">${escapeHtml(item.text)}</td>
+        <td class="list-text-cell" title="${escapeHtml(item.text)}">${escapeHtml(item.summary || item.text)}</td>
         <td data-timestamp="${item.timestamp}" title="${new Date(item.timestamp).toLocaleString()}">${relativeTime(item.timestamp)}</td>
         <td class="list-actions-cell">
           <button class="icon-action-btn list-archive-btn" data-id="${item.id}" title="Archive" aria-label="Archive">
