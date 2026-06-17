@@ -234,7 +234,9 @@ function showMicDeniedModal() {
       showMicDeniedModal();
       return;
     }
-    // Permission granted — reset to clean idle so the user can tap normally
+    // Permission granted — recreate recognition (old instance is stuck in denied state)
+    // then reset to clean idle so the user can tap normally
+    setupVoiceRecognition();
     resetVoiceUI();
   });
 
@@ -314,7 +316,8 @@ function setupVoiceRecognition() {
     if (event.error === "aborted") return;
     if (event.error === "not-allowed" || event.error === "service-not-allowed") {
       stopRecordingUI();
-      showMicDeniedModal();
+      // Only show denied modal if we don't already have a confirmed grant
+      if (!_micGranted) showMicDeniedModal();
       return;
     }
     stopRecordingUI();
