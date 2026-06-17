@@ -215,7 +215,7 @@ function showMicDeniedModal() {
         </svg>
       </div>
       <h2>Microphone access is turned off</h2>
-      <p class="mic-modal-sub">To enable voice capture, go to your <strong>iPhone Settings</strong>, scroll to find <strong>FLOW</strong>, and turn on <strong>Microphone</strong>. Then come back and try again.</p>
+      <p class="mic-modal-sub">Tap <strong>Try again</strong> — if the allow prompt doesn't appear, go to <strong>iPhone Settings → Privacy &amp; Security → Microphone</strong> and turn on <strong>Safari</strong>. Then come back and try again.</p>
       <div class="modal-actions">
         <button class="btn-secondary" id="micDeniedText">Use text instead</button>
         <button class="btn-primary" id="micDeniedRetry">Try again</button>
@@ -226,19 +226,12 @@ function showMicDeniedModal() {
   requestAnimationFrame(() => backdrop.classList.add("visible"));
 
   document.getElementById("micDeniedRetry").addEventListener("click", async () => {
-    // Remove immediately so showMicDeniedModal can re-create it after the check
     const el = document.getElementById("micDeniedBackdrop");
     if (el) el.remove();
-
-    const state = await getMicPermissionState();
-    if (state === "granted") {
-      await _requestMicStream();
-    } else if (state === "denied") {
-      showMicDeniedModal();
-    } else {
-      await _requestMicStream();
-      if (!_micGranted) showMicDeniedModal();
-    }
+    // Always attempt getUserMedia — on iOS this re-triggers the native prompt
+    // even when the Permissions API reports "denied" (soft-dismiss case)
+    await _requestMicStream();
+    if (!_micGranted) showMicDeniedModal();
   });
 
   document.getElementById("micDeniedText").addEventListener("click", () => {
