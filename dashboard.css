@@ -810,9 +810,123 @@
   .dash-main { margin-left: 0; padding-bottom: 90px; }
 }
 
-@media (max-width: 600px) {
-  .stats-row { grid-template-columns: 1fr; }
-  .kanban-board { grid-template-columns: 1fr; }
-  .filter-dropdown { width: calc(100vw - 64px); }
-  .quick-add-btn { bottom: 90px; }
+/* ============================================================
+   MOBILE KANBAN — single-column swipeable layout (≤700px)
+   ============================================================ */
+
+.mobile-kanban-tabs {
+  display: none; /* shown via JS on mobile */
+  flex-direction: row;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 0 12px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* stretch edge-to-edge */
+  margin: 0 -20px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+.mobile-kanban-tabs::-webkit-scrollbar { display: none; }
+
+.mobile-tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  min-height: 44px;
+  flex-shrink: 0;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.mobile-tab-pill.active {
+  color: var(--text-primary);
+  background: var(--surface-light);
+  border-color: transparent;
+  box-shadow: 0 0 0 1px rgba(124,58,237,0.4), 0 0 14px rgba(124,58,237,0.2);
+}
+/* Tint active pill to match column color */
+.mobile-tab-pill[data-col-class="col-not-started"].active { box-shadow: 0 0 0 1px var(--status-not-started), 0 0 14px color-mix(in srgb, var(--status-not-started) 35%, transparent); }
+.mobile-tab-pill[data-col-class="col-in-progress"].active { box-shadow: 0 0 0 1px var(--status-in-progress), 0 0 14px color-mix(in srgb, var(--status-in-progress) 35%, transparent); }
+.mobile-tab-pill[data-col-class="col-waiting"].active     { box-shadow: 0 0 0 1px var(--status-waiting),    0 0 14px color-mix(in srgb, var(--status-waiting)    35%, transparent); }
+.mobile-tab-pill[data-col-class="col-blocked"].active     { box-shadow: 0 0 0 1px var(--status-blocked),    0 0 14px color-mix(in srgb, var(--status-blocked)    35%, transparent); }
+.mobile-tab-pill[data-col-class="col-done"].active        { box-shadow: 0 0 0 1px var(--status-done),       0 0 14px color-mix(in srgb, var(--status-done)       35%, transparent); }
+
+.mobile-tab-count {
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(255,255,255,0.1);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(-40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 700px) {
+  /* Stats 2×2 grid */
+  .stats-row { grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .stat-box { padding: 14px 16px; }
+
+  /* Filter + view toggle row — bigger touch targets */
+  .filter-toggle-btn { min-height: 44px; padding: 0 16px; font-size: 14px; }
+  .view-toggle-btn   { min-height: 44px; padding: 0 18px; font-size: 14px; }
+  .filter-dropdown { width: calc(100vw - 40px); }
+
+  /* Kanban: single column, no horizontal scroll */
+  .kanban-board {
+    display: block;        /* columns positioned by JS show/hide */
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+  .kanban-column {
+    max-height: none;      /* let cards stack freely */
+    border-radius: 16px;
+    animation: none;       /* slide-in handled per-column */
+    opacity: 1;
+    transform: none;
+  }
+  .kanban-column.mobile-active.slide-in-left  { animation: slideInLeft  0.22s ease forwards; }
+  .kanban-column.mobile-active.slide-in-right { animation: slideInRight 0.22s ease forwards; }
+
+  /* Cards full-width, easier to tap */
+  .item-card { padding: 14px 16px; }
+  .item-card-text { font-size: 14px; }
+  .item-card-controls select,
+  .icon-action-btn,
+  .archive-btn { min-height: 44px; min-width: 44px; }
+  .status-select { min-height: 44px; }
+
+  /* Quick add button above bottom nav */
+  .quick-add-btn { bottom: 90px; width: 58px; height: 58px; }
+}
+
+/* Full-screen detail modal on mobile */
+@media (max-width: 700px) {
+  .item-detail-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .item-detail-modal {
+    max-width: 100%;
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 24px 24px 0 0;
+    transform: translateY(30px) scale(1);
+  }
+  .item-detail-backdrop.visible .item-detail-modal {
+    transform: translateY(0) scale(1);
+  }
 }

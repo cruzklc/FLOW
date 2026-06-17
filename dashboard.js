@@ -28,6 +28,7 @@ let cachedItems = [];
 const filters = { category: "All", priority: "All", status: "All", search: "", creator: "All" };
 let currentView = "kanban";
 let doneCollapsed = true;
+let activeMobileCol = 0; // index into STATUS_COLUMNS
 
 // ---- DOM REFERENCES ----
 const inboxBadge = document.getElementById("inboxBadge");
@@ -51,6 +52,7 @@ const kanbanBoard = document.getElementById("kanbanBoard");
 const listViewWrap = document.getElementById("listViewWrap");
 const listTableBody = document.getElementById("listTableBody");
 const dashEmptyState = document.getElementById("dashEmptyState");
+const mobileKanbanTabs = document.getElementById("mobileKanbanTabs");
 const sidebar = document.getElementById("sidebar");
 const sidebarToggle = document.getElementById("sidebarToggle");
 
@@ -67,14 +69,21 @@ const quickAddSubmitBtn = document.getElementById("quickAddSubmitBtn");
 async function init() {
   buildFilterPills();
   bindEvents();
+  bindKanbanSwipe();
   setupQuickAddVoice();
 
   await fetchItems();
   buildCreatorFilterPills();
   renderAll();
 
-  // Keep relative timestamps fresh without a full re-render
   setInterval(refreshTimestamps, 30000);
+
+  // Re-render on resize so desktop↔mobile transitions correctly
+  let resizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => renderBoardAndList(), 120);
+  });
 }
 
 function buildFilterPills() {
@@ -303,17 +312,84 @@ async function renderInboxBadge() {
 }
 
 // ============================================================
+// MOBILE KANBAN TABS
+// ============================================================
+function isMobile() { return window.innerWidth <= 700; }
+
+function renderMobileKanbanTabs(items) {
+  if (!isMobile()) { mobileKanbanTabs.style.display = "none"; return; }
+  mobileKanbanTabs.style.display = "flex";
+  mobileKanbanTabs.innerHTML = "";
+
+  STATUS_COLUMNS.forEach((col, idx) => {
+    const count = items.filter((i) => i.status === col.key).length;
+    const btn = document.createElement("button");
+    btn.className = "mobile-tab-pill" + (idx === activeMobileCol ? " active" : "");
+    btn.dataset.colClass = col.colClass;
+    btn.innerHTML = `${col.label}<span class="mobile-tab-count">${count}</span>`;
+    btn.addEventListener("click", () => switchMobileCol(idx, items));
+    mobileKanbanTabs.appendChild(btn);
+  });
+
+  // Scroll active pill into view
+  const active = mobileKanbanTabs.querySelector(".mobile-tab-pill.active");
+  if (active) active.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+}
+
+function switchMobileCol(idx, items, direction) {
+  if (idx < 0 || idx >= STATUS_COLUMNS.length) return;
+  activeMobileCol = idx;
+  renderMobileKanbanTabs(items);
+
+  const columns = kanbanBoard.querySelectorAll(".kanban-column");
+  columns.forEach((col, i) => {
+    col.classList.remove("mobile-active", "slide-in-left", "slide-in-right");
+    col.style.display = i === idx ? "" : "none";
+  });
+  if (columns[idx]) {
+    const animClass = direction === "left" ? "slide-in-left" : direction === "right" ? "slide-in-right" : "slide-in-left";
+    columns[idx].classList.add("mobile-active", animClass);
+  }
+}
+
+function bindKanbanSwipe() {
+  let startX = 0, startY = 0;
+  kanbanBoard.addEventListener("touchstart", (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+
+  kanbanBoard.addEventListener("touchend", (e) => {
+    if (!isMobile()) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return; // not a horizontal swipe
+    const items = getFilteredItems();
+    if (dx < 0) switchMobileCol(activeMobileCol + 1, items, "left");   // swipe left → next
+    else        switchMobileCol(activeMobileCol - 1, items, "right");  // swipe right → prev
+  }, { passive: true });
+}
+
+// ============================================================
 // KANBAN BOARD
 // ============================================================
 function renderKanban(items) {
   kanbanBoard.innerHTML = "";
+  const mobile = isMobile();
 
-  STATUS_COLUMNS.forEach((col) => {
+  renderMobileKanbanTabs(items);
+
+  STATUS_COLUMNS.forEach((col, idx) => {
     const columnItems = items.filter((i) => i.status === col.key);
     const isDone = col.key === "Done";
 
     const columnEl = document.createElement("div");
     columnEl.className = `kanban-column ${col.colClass}` + (isDone ? " collapsible" : "");
+
+    if (mobile) {
+      columnEl.style.display = idx === activeMobileCol ? "" : "none";
+      if (idx === activeMobileCol) columnEl.classList.add("mobile-active");
+    }
 
     const chevronSvg = `
       <span class="collapse-chevron ${isDone && !doneCollapsed ? "rotated" : ""}">
@@ -334,7 +410,7 @@ function renderKanban(items) {
 
     const cardsWrap = columnEl.querySelector(".kanban-cards");
 
-    if (isDone && doneCollapsed) {
+    if (isDone && doneCollapsed && !mobile) {
       cardsWrap.innerHTML = `<div class="done-collapsed-placeholder">${columnItems.length} completed — click to view</div>`;
     } else if (columnItems.length === 0) {
       cardsWrap.innerHTML = `<div class="kanban-empty">No items</div>`;
@@ -342,7 +418,7 @@ function renderKanban(items) {
       columnItems.forEach((item) => cardsWrap.appendChild(buildItemCard(item)));
     }
 
-    if (isDone) {
+    if (isDone && !mobile) {
       columnEl.querySelector(".kanban-column-header").addEventListener("click", () => {
         doneCollapsed = !doneCollapsed;
         renderBoardAndList();
