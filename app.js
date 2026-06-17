@@ -229,9 +229,24 @@ function showMicDeniedModal() {
     const el = document.getElementById("micDeniedBackdrop");
     if (el) el.remove();
     // Always attempt getUserMedia — on iOS this re-triggers the native prompt
-    // even when the Permissions API reports "denied" (soft-dismiss case)
     await _requestMicStream();
-    if (!_micGranted) showMicDeniedModal();
+    if (!_micGranted) {
+      showMicDeniedModal();
+      return;
+    }
+    // Permission granted — start recording since that was the user's original intent
+    finalTranscript = "";
+    interimTranscript = "";
+    startRecordingUI();
+    if (!_recognitionActive) {
+      try {
+        recognition.start();
+        _recognitionActive = true;
+      } catch (e) {
+        stopRecordingUI();
+        resetVoiceUI();
+      }
+    }
   });
 
   document.getElementById("micDeniedText").addEventListener("click", () => {
