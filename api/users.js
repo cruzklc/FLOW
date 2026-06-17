@@ -9,6 +9,17 @@ const { neon } = require("@neondatabase/serverless");
 const sql = neon(process.env.DATABASE_URL);
 
 module.exports = async function handler(req, res) {
+  // GET — list all users (for recipient picker)
+  if (req.method === "GET") {
+    try {
+      const users = await sql`SELECT id, name FROM users ORDER BY name ASC`;
+      return res.status(200).json(users);
+    } catch (err) {
+      console.error("GET /api/users error:", err);
+      return res.status(500).json({ error: "Failed to fetch users" });
+    }
+  }
+
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
     return;

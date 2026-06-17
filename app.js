@@ -68,23 +68,18 @@ async function postItem(item) {
 
 
 // ============================================================
-// INBOX BADGE — unread message count from localStorage threads
+// INBOX BADGE — unread count from DB
 // ============================================================
-function getInboxUnreadCount() {
+async function renderInboxBadge() {
+  const session = getSession();
+  if (!session) return;
   try {
-    const threads = JSON.parse(localStorage.getItem("flow_inbox_threads") || "[]");
-    return threads.reduce((count, thread) => {
-      return count + thread.messages.filter((m) => !m.read && m.sender !== "Kevin").length;
-    }, 0);
-  } catch {
-    return 0;
-  }
-}
-
-function renderInboxBadge() {
-  const unread = getInboxUnreadCount();
-  inboxBadge.textContent = unread;
-  inboxBadge.classList.toggle("hidden", unread === 0);
+    const res = await fetch(`/api/unread?user_id=${session.id}`);
+    if (!res.ok) return;
+    const { unread } = await res.json();
+    inboxBadge.textContent = unread;
+    inboxBadge.classList.toggle("hidden", unread === 0);
+  } catch { /* silent */ }
 }
 
 // ============================================================

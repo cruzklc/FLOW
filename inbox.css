@@ -171,6 +171,20 @@
   flex: 1;
 }
 
+.thread-participants-line {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.inbox-loading {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
 .unread-dot {
   width: 8px;
   height: 8px;
@@ -371,11 +385,11 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.message-bubble-wrap.from-kevin {
+.message-bubble-wrap.from-me {
   align-items: flex-end;
 }
 
-.message-bubble-wrap.from-amit {
+.message-bubble-wrap.from-them {
   align-items: flex-start;
 }
 
@@ -395,14 +409,14 @@
   word-break: break-word;
 }
 
-.message-bubble-wrap.from-kevin .message-bubble {
+.message-bubble-wrap.from-me .message-bubble {
   background: linear-gradient(135deg, var(--primary), #5B21B6);
   color: white;
   border-bottom-right-radius: 5px;
   box-shadow: 0 4px 16px rgba(124,58,237,0.3);
 }
 
-.message-bubble-wrap.from-amit .message-bubble {
+.message-bubble-wrap.from-them .message-bubble {
   background: var(--surface-light);
   border: 1px solid var(--border);
   color: var(--text-primary);

@@ -1,43 +1,40 @@
 // ============================================================
-// FLOW — inbox.js
-// Two-panel inbox: thread list (left) + conversation (right).
-// Threads stored in localStorage under "flow_inbox_threads".
-// Messages are Kevin ↔ Amit, linked to captured item IDs.
+// FLOW — inbox.js  (DB-backed)
+// Threads and messages stored in Postgres.
+// Any user can message any other user; recipient sees it on
+// next load or on the 30s poll.
 // ============================================================
-
-const STORAGE_KEY = "flow_inbox_threads";
-function getCurrentUserName() {
-  return getSession()?.name || "";
-}
 
 // ---- STATE ----
 let threads = [];
 let activeThreadId = null;
-let allItems = []; // fetched from /api/items for the link dropdown
+let allItems = [];
+let allUsers = [];
+let pollTimer = null;
 
 // ---- DOM ----
-const inboxBadge = document.getElementById("inboxBadge");
-const sidebarToggle = document.getElementById("sidebarToggle");
-const sidebar = document.getElementById("sidebar");
-const threadList = document.getElementById("threadList");
-const threadSearch = document.getElementById("threadSearch");
-const newThreadBtn = document.getElementById("newThreadBtn");
+const inboxBadge     = document.getElementById("inboxBadge");
+const sidebarToggle  = document.getElementById("sidebarToggle");
+const sidebar        = document.getElementById("sidebar");
+const threadList     = document.getElementById("threadList");
+const threadSearch   = document.getElementById("threadSearch");
+const newThreadBtn   = document.getElementById("newThreadBtn");
 
-const threadPanel = document.getElementById("threadPanel");
+const threadPanel       = document.getElementById("threadPanel");
 const conversationPanel = document.getElementById("conversationPanel");
-const backBtn = document.getElementById("backBtn");
+const backBtn           = document.getElementById("backBtn");
 const conversationHeader = document.getElementById("conversationHeader");
-const messagesWrap = document.getElementById("messagesWrap");
-const messageInputWrap = document.getElementById("messageInputWrap");
-const messageInput = document.getElementById("messageInput");
-const sendMessageBtn = document.getElementById("sendMessageBtn");
-const inboxEmptyState = document.getElementById("inboxEmptyState");
+const messagesWrap      = document.getElementById("messagesWrap");
+const messageInputWrap  = document.getElementById("messageInputWrap");
+const messageInput      = document.getElementById("messageInput");
+const sendMessageBtn    = document.getElementById("sendMessageBtn");
+const inboxEmptyState   = document.getElementById("inboxEmptyState");
 
-const newThreadBackdrop = document.getElementById("newThreadBackdrop");
-const itemLinkSelect = document.getElementById("itemLinkSelect");
-const firstMessageInput = document.getElementById("firstMessageInput");
+const newThreadBackdrop  = document.getElementById("newThreadBackdrop");
+const itemLinkSelect     = document.getElementById("itemLinkSelect");
+const firstMessageInput  = document.getElementById("firstMessageInput");
 const cancelNewThreadBtn = document.getElementById("cancelNewThreadBtn");
-const createThreadBtn = document.getElementById("createThreadBtn");
+const createThreadBtn    = document.getElementById("createThreadBtn");
 
 // ============================================================
 // INIT
@@ -45,143 +42,93 @@ const createThreadBtn = document.getElementById("createThreadBtn");
 async function init() {
   sidebarToggle.addEventListener("click", () => sidebar.classList.toggle("open"));
 
-  loadThreads();
-  await fetchItems();
+  await Promise.all([fetchThreads(), fetchItems(), fetchUsers()]);
   populateItemLinkSelect();
-
-  if (threads.length === 0) seedSampleThreads();
-
+  populateRecipientSelect();
   renderThreadList();
   renderInboxBadge();
   bindEvents();
+
+  // Poll for new messages every 30 seconds
+  pollTimer = setInterval(pollForUpdates, 30000);
 }
 
 // ============================================================
-// STORAGE
+// API HELPERS
 // ============================================================
-function loadThreads() {
+async function fetchThreads() {
+  const session = getSession();
+  if (!session) return;
   try {
-    threads = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  } catch {
-    threads = [];
+    const res = await fetch(`/api/threads?user_id=${session.id}`);
+    if (res.ok) threads = await res.json();
+  } catch (err) {
+    console.error("fetchThreads error:", err);
   }
 }
 
-function saveThreads() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(threads));
+async function fetchMessages(threadId) {
+  const session = getSession();
+  const url = `/api/threads/${threadId}/messages${session ? `?user_id=${session.id}` : ""}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch messages");
+  return res.json();
 }
 
-// ============================================================
-// SEED SAMPLE DATA (first visit only)
-// ============================================================
-function seedSampleThreads() {
-  const now = Date.now();
-  threads = [
-    {
-      id: "thread_1",
-      itemId: null,
-      itemCategory: "Decision Needed",
-      itemSummary: "Restructure engineering team org chart",
-      messages: [
-        {
-          id: "msg_1",
-          sender: "Amit",
-          text: "I reviewed the org chart proposal. I think we should hold off on the senior IC track until Q3 — need more utilization data first.",
-          timestamp: new Date(now - 2 * 3600000).toISOString(),
-          read: true,
-        },
-        {
-          id: "msg_2",
-          sender: "Kevin",
-          text: "Makes sense. Can you put together a one-pager on utilization metrics before Monday's call?",
-          timestamp: new Date(now - 1.5 * 3600000).toISOString(),
-          read: true,
-        },
-        {
-          id: "msg_3",
-          sender: "Amit",
-          text: "On it. Should I include contractor hours or just FTE?",
-          timestamp: new Date(now - 28 * 60000).toISOString(),
-          read: false,
-        },
-      ],
-    },
-    {
-      id: "thread_2",
-      itemId: null,
-      itemCategory: "Action Item",
-      itemSummary: "Prepare metrics report for Monday team call",
-      messages: [
-        {
-          id: "msg_4",
-          sender: "Kevin",
-          text: "Amit — can you pull the engagement numbers from last quarter? Need them for the deck.",
-          timestamp: new Date(now - 5 * 3600000).toISOString(),
-          read: true,
-        },
-        {
-          id: "msg_5",
-          sender: "Amit",
-          text: "Got it. Do you want the breakdown by product line or just the aggregate?",
-          timestamp: new Date(now - 4 * 3600000).toISOString(),
-          read: true,
-        },
-        {
-          id: "msg_6",
-          sender: "Kevin",
-          text: "Both if possible. Aggregate on the first slide, breakdown in the appendix.",
-          timestamp: new Date(now - 3.8 * 3600000).toISOString(),
-          read: true,
-        },
-        {
-          id: "msg_7",
-          sender: "Amit",
-          text: "Done — I'll have it ready by Sunday evening.",
-          timestamp: new Date(now - 3.5 * 3600000).toISOString(),
-          read: true,
-        },
-      ],
-    },
-    {
-      id: "thread_3",
-      itemId: null,
-      itemCategory: "Urgent",
-      itemSummary: "Production bug affecting checkout flow",
-      messages: [
-        {
-          id: "msg_8",
-          sender: "Amit",
-          text: "Heads up — we're seeing a 12% drop-off on the checkout page since the deploy this morning. Looking into it now.",
-          timestamp: new Date(now - 45 * 60000).toISOString(),
-          read: false,
-        },
-        {
-          id: "msg_9",
-          sender: "Amit",
-          text: "Traced it to a race condition in the payment handler. Fix is ready, just needs your sign-off to deploy.",
-          timestamp: new Date(now - 20 * 60000).toISOString(),
-          read: false,
-        },
-      ],
-    },
-  ];
-  saveThreads();
-}
-
-// ============================================================
-// FETCH ITEMS from DB (for link dropdown)
-// ============================================================
 async function fetchItems() {
   try {
     const res = await fetch("/api/items");
     if (res.ok) allItems = await res.json();
-  } catch {
-    allItems = [];
-  }
+  } catch { allItems = []; }
 }
 
+async function fetchUsers() {
+  try {
+    const res = await fetch("/api/users");
+    if (res.ok) allUsers = await res.json();
+  } catch { allUsers = []; }
+}
+
+async function pollForUpdates() {
+  const session = getSession();
+  if (!session) return;
+  try {
+    const res = await fetch(`/api/threads?user_id=${session.id}`);
+    if (!res.ok) return;
+    threads = await res.json();
+    renderInboxBadge();
+    renderThreadList(threadSearch.value);
+
+    // If a thread is open, refresh its messages silently
+    if (activeThreadId) {
+      const msgs = await fetchMessages(activeThreadId);
+      const wasAtBottom = messagesWrap.scrollHeight - messagesWrap.scrollTop - messagesWrap.clientHeight < 60;
+      const existingCount = messagesWrap.querySelectorAll(".message-bubble-wrap").length;
+      if (msgs.length > existingCount) {
+        const newMsgs = msgs.slice(existingCount);
+        newMsgs.forEach((m) => appendMessageBubble(m, true));
+        if (wasAtBottom) scrollToBottom();
+      }
+    }
+  } catch { /* silent */ }
+}
+
+// ============================================================
+// INBOX BADGE
+// ============================================================
+function renderInboxBadge() {
+  const total = threads.reduce((n, t) => n + (t.unread_count || 0), 0);
+  inboxBadge.textContent = total;
+  inboxBadge.classList.toggle("hidden", total === 0);
+}
+
+// ============================================================
+// POPULATE SELECTS
+// ============================================================
 function populateItemLinkSelect() {
-  allItems.slice(0, 30).forEach((item) => {
+  // clear existing options except the placeholder
+  while (itemLinkSelect.options.length > 1) itemLinkSelect.remove(1);
+  allItems.slice(0, 40).forEach((item) => {
     const opt = document.createElement("option");
     opt.value = item.id;
     const label = item.summary || item.text;
@@ -190,20 +137,20 @@ function populateItemLinkSelect() {
   });
 }
 
-// ============================================================
-// INBOX BADGE
-// ============================================================
-function getUnreadCount() {
-  const myName = getCurrentUserName().toLowerCase();
-  return threads.reduce((count, thread) => {
-    return count + thread.messages.filter((m) => !m.read && m.sender.toLowerCase() !== myName).length;
-  }, 0);
-}
-
-function renderInboxBadge() {
-  const unread = getUnreadCount();
-  inboxBadge.textContent = unread;
-  inboxBadge.classList.toggle("hidden", unread === 0);
+function populateRecipientSelect() {
+  const select = document.getElementById("recipientSelect");
+  if (!select) return;
+  const session = getSession();
+  // clear except placeholder
+  while (select.options.length > 1) select.remove(1);
+  allUsers
+    .filter((u) => !session || u.id !== session.id)
+    .forEach((u) => {
+      const opt = document.createElement("option");
+      opt.value = u.id;
+      opt.textContent = u.name;
+      select.appendChild(opt);
+    });
 }
 
 // ============================================================
@@ -211,11 +158,13 @@ function renderInboxBadge() {
 // ============================================================
 function renderThreadList(filterText = "") {
   const query = filterText.toLowerCase().trim();
+  const session = getSession();
+
   const filtered = query
     ? threads.filter(
         (t) =>
-          t.itemSummary.toLowerCase().includes(query) ||
-          t.messages.some((m) => m.text.toLowerCase().includes(query))
+          (t.item_summary || t.title || "").toLowerCase().includes(query) ||
+          (t.last_message?.text || "").toLowerCase().includes(query)
       )
     : threads;
 
@@ -223,7 +172,7 @@ function renderThreadList(filterText = "") {
     threadList.innerHTML = `
       <div class="thread-list-empty">
         <svg width="44" height="44" viewBox="0 0 24 24" fill="none"><path d="M22 12h-6l-2 3h-4l-2-3H2" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-        <p>${query ? "No conversations match your search" : "No conversations yet — messages about your captured items will appear here"}</p>
+        <p>${query ? "No conversations match your search" : "No conversations yet"}</p>
         ${!query ? `<button class="start-btn" id="emptyStartBtn">Start a conversation</button>` : ""}
       </div>
     `;
@@ -233,39 +182,36 @@ function renderThreadList(filterText = "") {
     return;
   }
 
-  // Sort by most recent message
-  const sorted = [...filtered].sort((a, b) => {
-    const aLast = a.messages[a.messages.length - 1]?.timestamp || "";
-    const bLast = b.messages[b.messages.length - 1]?.timestamp || "";
-    return bLast.localeCompare(aLast);
-  });
-
   threadList.innerHTML = "";
-  sorted.forEach((thread) => {
-    const lastMsg = thread.messages[thread.messages.length - 1];
-    const hasUnread = thread.messages.some((m) => !m.read && m.sender !== CURRENT_USER);
+  filtered.forEach((thread) => {
+    const hasUnread = thread.unread_count > 0;
     const isActive = thread.id === activeThreadId;
+    const displayTitle = thread.item_summary || thread.title || "Conversation";
+    const category = thread.item_category || "FYI";
+    const lastMsg = thread.last_message;
+
+    // Participants other than self
+    const others = (thread.participants || [])
+      .filter((p) => !session || p.id !== session.id)
+      .map((p) => p.name)
+      .join(", ");
 
     const item = document.createElement("div");
-    item.className = [
-      "thread-item",
-      isActive ? "active" : "",
-      hasUnread ? "unread" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
+    item.className = ["thread-item", isActive ? "active" : "", hasUnread ? "unread" : ""]
+      .filter(Boolean).join(" ");
     item.dataset.id = thread.id;
 
     item.innerHTML = `
       <div class="thread-item-top">
-        <span class="thread-item-title">${escapeHtml(thread.itemSummary)}</span>
-        <span class="thread-item-time">${lastMsg ? relativeTime(lastMsg.timestamp) : ""}</span>
+        <span class="thread-item-title">${escapeHtml(displayTitle)}</span>
+        <span class="thread-item-time">${lastMsg ? relativeTime(lastMsg.created_at) : ""}</span>
       </div>
       <div class="thread-item-meta">
-        <span class="badge-pill ${categoryClass(thread.itemCategory)}" style="font-size:9px;padding:2px 7px;">${thread.itemCategory}</span>
-        <span class="thread-preview">${lastMsg ? escapeHtml(lastMsg.sender + ": " + lastMsg.text) : "No messages yet"}</span>
+        <span class="badge-pill ${categoryClass(category)}" style="font-size:9px;padding:2px 7px;">${category}</span>
+        <span class="thread-preview">${lastMsg ? escapeHtml((lastMsg.sender_name || "?") + ": " + lastMsg.text) : "No messages yet"}</span>
         ${hasUnread ? `<span class="unread-dot"></span>` : ""}
       </div>
+      ${others ? `<div class="thread-participants-line">with ${escapeHtml(others)}</div>` : ""}
     `;
 
     item.addEventListener("click", () => openThread(thread.id));
@@ -276,175 +222,191 @@ function renderThreadList(filterText = "") {
 // ============================================================
 // OPEN THREAD
 // ============================================================
-function openThread(threadId) {
+async function openThread(threadId) {
   activeThreadId = threadId;
 
-  // Mark all incoming messages as read
+  // Find thread in cache for header render (optimistic)
   const thread = threads.find((t) => t.id === threadId);
-  if (!thread) return;
-  const myName = getCurrentUserName().toLowerCase();
-  thread.messages.forEach((m) => {
-    if (m.sender.toLowerCase() !== myName) m.read = true;
-  });
-  saveThreads();
-  renderInboxBadge();
-  renderThreadList(threadSearch.value);
-  renderConversation(thread);
 
-  // Mobile: slide panels
+  renderConversationHeader(thread);
+  messagesWrap.innerHTML = `<div class="inbox-loading">Loading messages…</div>`;
+  inboxEmptyState.style.display = "none";
+  messageInputWrap.style.display = "block";
+
+  // Mobile: slide
   if (window.innerWidth <= 900) {
     threadPanel.classList.add("slide-out");
     conversationPanel.classList.add("slide-in");
   }
+
+  try {
+    const messages = await fetchMessages(threadId);
+    messagesWrap.innerHTML = "";
+    if (messages.length === 0) {
+      messagesWrap.innerHTML = `
+        <div class="inbox-empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <p>No messages yet — send the first one below</p>
+        </div>
+      `;
+    } else {
+      messages.forEach((m) => appendMessageBubble(m, false));
+    }
+    scrollToBottom();
+    messageInput.focus();
+
+    // Update unread in local cache + re-render badge/list
+    if (thread) thread.unread_count = 0;
+    renderInboxBadge();
+    renderThreadList(threadSearch.value);
+  } catch (err) {
+    messagesWrap.innerHTML = `<div class="inbox-loading" style="color:var(--priority-high)">Failed to load messages</div>`;
+  }
 }
 
 // ============================================================
-// RENDER CONVERSATION
+// RENDER CONVERSATION HEADER
 // ============================================================
-function renderConversation(thread) {
-  // Header
+function renderConversationHeader(thread) {
+  if (!thread) { conversationHeader.innerHTML = ""; return; }
+  const session = getSession();
+  const others = (thread.participants || []).filter((p) => !session || p.id !== session.id);
+
+  const avatars = others.map((p) =>
+    `<div class="participant-avatar" style="background:var(--primary-dim)">${escapeHtml(p.name[0].toUpperCase())}</div>`
+  ).join("");
+
+  const participantNames = others.map((p) => p.name).join(" & ");
+  const displayTitle = thread.item_summary || thread.title || "Conversation";
+  const category = thread.item_category || "FYI";
+
   conversationHeader.innerHTML = `
     <div class="conversation-header-inner">
       <div class="conversation-header-left">
         <div class="conversation-participants">
-          <div class="participant-avatar kevin">K</div>
-          <div class="participant-avatar amit">A</div>
-          <span class="participants-label">Kevin &amp; Amit</span>
+          ${avatars}
+          <span class="participants-label">${escapeHtml(participantNames || "No other participants")}</span>
         </div>
-        ${thread.itemSummary ? `
         <div class="linked-item-row">
           <span class="linked-item-label">Re:</span>
-          <span class="linked-item-summary">${escapeHtml(thread.itemSummary)}</span>
-          <span class="badge-pill ${categoryClass(thread.itemCategory)}" style="font-size:9px;padding:2px 7px;">${thread.itemCategory}</span>
-          ${thread.itemId ? `<a href="dashboard.html" class="view-in-dash-link">View in Dashboard →</a>` : ""}
-        </div>` : ""}
+          <span class="linked-item-summary">${escapeHtml(displayTitle)}</span>
+          <span class="badge-pill ${categoryClass(category)}" style="font-size:9px;padding:2px 7px;">${category}</span>
+          ${thread.item_id ? `<a href="dashboard.html" class="view-in-dash-link">View in Dashboard →</a>` : ""}
+        </div>
       </div>
     </div>
   `;
-
-  // Messages
-  messagesWrap.innerHTML = "";
-  if (thread.messages.length === 0) {
-    messagesWrap.innerHTML = `
-      <div class="inbox-empty-state">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <p>No messages yet — send the first one below</p>
-      </div>
-    `;
-  } else {
-    thread.messages.forEach((msg) => appendMessageBubble(msg, false));
-  }
-
-  inboxEmptyState.style.display = "none";
-  messageInputWrap.style.display = "block";
-  messageInput.focus();
-  scrollToBottom();
 }
 
+// ============================================================
+// MESSAGE BUBBLE
+// ============================================================
 function appendMessageBubble(msg, animate = true) {
-  const isKevin = msg.sender.toLowerCase() === getCurrentUserName().toLowerCase();
+  const session = getSession();
+  const isMe = session && msg.sender_id === session.id;
   const wrap = document.createElement("div");
-  wrap.className = `message-bubble-wrap ${isKevin ? "from-kevin" : "from-amit"}`;
+  wrap.className = `message-bubble-wrap ${isMe ? "from-me" : "from-them"}`;
   if (!animate) wrap.style.animation = "none";
 
   wrap.innerHTML = `
-    <span class="bubble-sender">${escapeHtml(msg.sender)}</span>
+    <span class="bubble-sender">${escapeHtml(msg.sender_name || "Unknown")}</span>
     <div class="message-bubble">${escapeHtml(msg.text)}</div>
-    <span class="bubble-time">${relativeTime(msg.timestamp)}</span>
+    <span class="bubble-time">${relativeTime(msg.created_at)}</span>
   `;
 
-  // Remove empty state if present
-  const emptyEl = messagesWrap.querySelector(".inbox-empty-state");
+  const emptyEl = messagesWrap.querySelector(".inbox-empty-state, .inbox-loading");
   if (emptyEl) emptyEl.remove();
 
   messagesWrap.appendChild(wrap);
 }
 
 function scrollToBottom() {
-  requestAnimationFrame(() => {
-    messagesWrap.scrollTop = messagesWrap.scrollHeight;
-  });
+  requestAnimationFrame(() => { messagesWrap.scrollTop = messagesWrap.scrollHeight; });
 }
 
 // ============================================================
 // SEND MESSAGE
 // ============================================================
-function sendMessage() {
+async function sendMessage() {
   const text = messageInput.value.trim();
-  if (!text || !activeThreadId) return;
-
-  const thread = threads.find((t) => t.id === activeThreadId);
-  if (!thread) return;
-
-  const msg = {
-    id: "msg_" + Date.now(),
-    sender: getCurrentUserName(),
-    sender_id: getSession()?.id || null,
-    text,
-    timestamp: new Date().toISOString(),
-    read: true,
-  };
-
-  thread.messages.push(msg);
-  saveThreads();
-
-  appendMessageBubble(msg, true);
-  scrollToBottom();
-  renderThreadList(threadSearch.value);
+  const session = getSession();
+  if (!text || !activeThreadId || !session) return;
 
   messageInput.value = "";
   messageInput.style.height = "auto";
+  sendMessageBtn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/threads/${activeThreadId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sender_id: session.id, text }),
+    });
+    if (!res.ok) throw new Error("Send failed");
+    const msg = await res.json();
+    appendMessageBubble(msg, true);
+    scrollToBottom();
+    renderThreadList(threadSearch.value);
+  } catch (err) {
+    console.error("sendMessage error:", err);
+    messageInput.value = text; // restore on failure
+  } finally {
+    sendMessageBtn.disabled = false;
+    messageInput.focus();
+  }
 }
 
 // ============================================================
 // NEW THREAD MODAL
 // ============================================================
 function openNewThreadModal() {
-  firstMessageInput.value = "";
+  if (firstMessageInput) firstMessageInput.value = "";
   newThreadBackdrop.classList.add("visible");
-  setTimeout(() => firstMessageInput.focus(), 200);
+  setTimeout(() => firstMessageInput?.focus(), 200);
 }
 
 function closeNewThreadModal() {
   newThreadBackdrop.classList.remove("visible");
 }
 
-function createThread() {
+async function createThread() {
   const firstMsg = firstMessageInput.value.trim();
-  if (!firstMsg) {
-    firstMessageInput.focus();
+  const session = getSession();
+  if (!firstMsg || !session) { firstMessageInput?.focus(); return; }
+
+  const recipientSelect = document.getElementById("recipientSelect");
+  const recipientId = recipientSelect?.value ? parseInt(recipientSelect.value, 10) : null;
+  if (!recipientId) {
+    recipientSelect?.focus();
     return;
   }
 
-  const selectedItemId = itemLinkSelect.value || null;
-  const linkedItem = selectedItemId
-    ? allItems.find((i) => String(i.id) === String(selectedItemId))
-    : null;
+  const selectedItemId = itemLinkSelect.value ? parseInt(itemLinkSelect.value, 10) : null;
 
-  const thread = {
-    id: "thread_" + Date.now(),
-    itemId: selectedItemId,
-    itemCategory: linkedItem ? linkedItem.category : "FYI",
-    itemSummary: linkedItem
-      ? (linkedItem.summary || linkedItem.text).slice(0, 80)
-      : "General conversation",
-    messages: [
-      {
-        id: "msg_" + Date.now(),
-        sender: getCurrentUserName(),
-        sender_id: getSession()?.id || null,
-        text: firstMsg,
-        timestamp: new Date().toISOString(),
-        read: true,
-      },
-    ],
-  };
+  createThreadBtn.disabled = true;
+  try {
+    const res = await fetch("/api/threads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        created_by: session.id,
+        participant_ids: [recipientId],
+        item_id: selectedItemId || null,
+        first_message: firstMsg,
+      }),
+    });
+    if (!res.ok) throw new Error("Failed to create thread");
+    const { id } = await res.json();
 
-  threads.unshift(thread);
-  saveThreads();
-  closeNewThreadModal();
-  renderThreadList();
-  openThread(thread.id);
+    closeNewThreadModal();
+    await fetchThreads();
+    renderThreadList();
+    openThread(id);
+  } catch (err) {
+    console.error("createThread error:", err);
+  } finally {
+    createThreadBtn.disabled = false;
+  }
 }
 
 // ============================================================
@@ -458,20 +420,12 @@ function bindEvents() {
   });
   createThreadBtn.addEventListener("click", createThread);
 
-  threadSearch.addEventListener("input", (e) => {
-    renderThreadList(e.target.value);
-  });
+  threadSearch.addEventListener("input", (e) => renderThreadList(e.target.value));
 
   sendMessageBtn.addEventListener("click", sendMessage);
-
   messageInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
-
-  // Auto-grow textarea
   messageInput.addEventListener("input", () => {
     messageInput.style.height = "auto";
     messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + "px";
@@ -487,29 +441,20 @@ function bindEvents() {
 // ============================================================
 // HELPERS
 // ============================================================
-function relativeTime(timestamp) {
-  const now = Date.now();
-  const then = new Date(timestamp).getTime();
-  const diffMs = now - then;
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffHr = Math.floor(diffMs / 3600000);
-  const diffDay = Math.floor(diffMs / 86400000);
-
-  if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHr < 24) return `${diffHr}h ago`;
-  if (diffDay === 1) return "Yesterday";
-  return `${diffDay}d ago`;
+function relativeTime(ts) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const m = Math.floor(diff / 60000);
+  const h = Math.floor(diff / 3600000);
+  const d = Math.floor(diff / 86400000);
+  if (m < 1) return "Just now";
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  if (d === 1) return "Yesterday";
+  return `${d}d ago`;
 }
-
-function categoryClass(category) {
-  return "cat-" + (category || "fyi").toLowerCase().replace(/\s+/g, "-");
-}
-
+function categoryClass(c) { return "cat-" + (c || "fyi").toLowerCase().replace(/\s+/g, "-"); }
 function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str || "";
-  return div.innerHTML;
+  const d = document.createElement("div"); d.textContent = str || ""; return d.innerHTML;
 }
 
 // ============================================================
