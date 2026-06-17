@@ -25,7 +25,7 @@ const STATUS_OPTIONS = [
 let cachedItems = [];
 
 // Active filter + view state
-const filters = { category: "All", priority: "All", status: "All", search: "" };
+const filters = { category: "All", priority: "All", status: "All", search: "", creator: "All" };
 let currentView = "kanban";
 let doneCollapsed = true;
 
@@ -42,6 +42,7 @@ const filterDropdown = document.getElementById("filterDropdown");
 const categoryFilterGroup = document.getElementById("categoryFilterGroup");
 const priorityFilterGroup = document.getElementById("priorityFilterGroup");
 const statusFilterGroup = document.getElementById("statusFilterGroup");
+const creatorFilterGroup = document.getElementById("creatorFilterGroup");
 const searchInput = document.getElementById("searchInput");
 
 const kanbanViewBtn = document.getElementById("kanbanViewBtn");
@@ -69,6 +70,7 @@ async function init() {
   setupQuickAddVoice();
 
   await fetchItems();
+  buildCreatorFilterPills();
   renderAll();
 
   // Keep relative timestamps fresh without a full re-render
@@ -79,6 +81,26 @@ function buildFilterPills() {
   buildPillGroup(categoryFilterGroup, CATEGORY_OPTIONS, "category");
   buildPillGroup(priorityFilterGroup, PRIORITY_OPTIONS, "priority");
   buildPillGroup(statusFilterGroup, STATUS_OPTIONS, "status");
+}
+
+function buildCreatorFilterPills() {
+  creatorFilterGroup.innerHTML = "";
+  const session = getSession();
+  // Collect unique creators from loaded items
+  const seen = new Map();
+  cachedItems.forEach((item) => {
+    if (item.created_by && item.created_by_name && !seen.has(item.created_by)) {
+      seen.set(item.created_by, item.created_by_name);
+    }
+  });
+  const options = [{ value: "All", label: "All" }];
+  if (session) options.push({ value: String(session.id), label: "Mine" });
+  seen.forEach((name, id) => {
+    if (!session || String(id) !== String(session.id)) {
+      options.push({ value: String(id), label: name });
+    }
+  });
+  buildPillGroup(creatorFilterGroup, options, "creator");
 }
 
 function buildPillGroup(container, options, filterKey) {
@@ -105,6 +127,7 @@ function updateFilterActiveDot() {
     filters.category !== "All" ||
     filters.priority !== "All" ||
     filters.status !== "All" ||
+    filters.creator !== "All" ||
     filters.search !== "";
   filterActiveDot.classList.toggle("visible", hasActiveFilter);
 }
@@ -210,6 +233,7 @@ function getFilteredItems() {
     if (filters.category !== "All" && item.category !== filters.category) return false;
     if (filters.priority !== "All" && item.priority !== filters.priority) return false;
     if (filters.status !== "All" && item.status !== filters.status) return false;
+    if (filters.creator !== "All" && String(item.created_by) !== filters.creator) return false;
     if (filters.search && !item.text.toLowerCase().includes(filters.search)) return false;
     return true;
   });
@@ -352,10 +376,17 @@ function buildItemCard(item) {
   card.className = `item-card ${priorityClass} ${glowClass}`;
   card.dataset.id = item.id;
 
+  const session = getSession();
+  const isOtherUser = item.created_by_name && (!session || String(item.created_by) !== String(session.id));
+  const creatorChip = isOtherUser
+    ? `<span class="card-creator-chip" title="Created by ${escapeHtml(item.created_by_name)}">${escapeHtml(item.created_by_name[0].toUpperCase())}</span>`
+    : "";
+
   card.innerHTML = `
     <div class="item-card-badges">
       <span class="badge-pill ${categoryClass(item.category)} editable-badge" title="Click to change category">${item.category}</span>
       <span class="badge-pill priority ${item.priority.toLowerCase()} editable-badge" title="Click to change priority">${item.priority}</span>
+      ${creatorChip}
     </div>
     <p class="item-card-text" title="${escapeHtml(item.text)}">${escapeHtml(item.summary || item.text)}</p>
     <p class="item-card-time" data-timestamp="${item.timestamp}" title="${new Date(item.timestamp).toLocaleString()}">${relativeTime(item.timestamp)}</p>

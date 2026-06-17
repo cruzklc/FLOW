@@ -46,7 +46,9 @@ async function init() {
 // ============================================================
 async function fetchItems() {
   try {
-    const response = await fetch("/api/items");
+    const session = getSession();
+    const url = session ? `/api/items?created_by=${session.id}` : "/api/items";
+    const response = await fetch(url);
     if (!response.ok) throw new Error("Failed to fetch items");
     cachedItems = await response.json();
   } catch (err) {
