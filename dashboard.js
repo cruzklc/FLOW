@@ -538,23 +538,28 @@ async function submitQuickAdd() {
       body: JSON.stringify({ text }),
     });
     if (!response.ok) throw new Error("Categorize failed");
-    const data = await response.json();
+    const items = await response.json(); // always an array
 
     const session = getSession();
-    const newItem = {
-      id: Date.now(),
-      text,
-      summary: data.summary,
-      category: data.category,
-      priority: data.priority,
-      status: "Not Started",
-      timestamp: new Date().toISOString(),
-      read: false,
-      created_by: session ? session.id : null,
-    };
+    const baseTime = Date.now();
 
-    await postItem(newItem);
-    cachedItems.unshift(newItem);
+    for (let i = 0; i < items.length; i++) {
+      const d = items[i];
+      const newItem = {
+        id: baseTime + i,
+        text,
+        summary: d.summary,
+        category: d.category,
+        priority: d.priority,
+        status: "Not Started",
+        timestamp: new Date(baseTime + i).toISOString(),
+        read: false,
+        created_by: session ? session.id : null,
+      };
+      await postItem(newItem);
+      cachedItems.unshift(newItem);
+    }
+
     renderAll();
     closeQuickAdd();
   } catch (err) {

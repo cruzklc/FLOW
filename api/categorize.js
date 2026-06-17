@@ -1,17 +1,22 @@
 // ============================================================
 // /api/categorize — Vercel serverless function
-// Receives raw captured text from the frontend, sends it to the
-// Claude API for categorization, and returns clean JSON.
-// The Anthropic API key never leaves the server.
+// Receives raw captured text, sends it to Claude, and returns
+// a JSON array of items. Multi-thought inputs are split into
+// separate items automatically. Single thoughts return a
+// one-element array.
 // ============================================================
 
 const SYSTEM_PROMPT =
   "You are an AI assistant helping a CEO organize their thoughts. " +
-  "Analyze the following input and return ONLY a valid JSON object with exactly these fields: " +
+  "Analyze the following input carefully. If it contains multiple distinct thoughts, " +
+  "action items, ideas, or topics, split them into separate items. " +
+  "If it is one single cohesive thought, return just one item. " +
+  "Return ONLY a valid JSON array, even if there is just one item. " +
+  "Each item in the array must have exactly these fields: " +
   "category (must be exactly one of: Action Item, Decision Needed, Idea, FYI, Urgent), " +
   "priority (must be exactly one of: High, Medium, Low), " +
-  "summary (a clean one sentence version of the input under 100 characters). " +
-  "Return nothing else — no markdown, no explanation, just the raw JSON object.";
+  "summary (a clean one sentence version of that specific thought, under 100 characters). " +
+  "Return nothing else — no markdown, no explanation, just the raw JSON array.";
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -42,7 +47,7 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 300,
+        max_tokens: 1024,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: text }],
       }),
@@ -67,7 +72,9 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    res.status(200).json(parsed);
+    // Normalise: always return an array
+    const items = Array.isArray(parsed) ? parsed : [parsed];
+    res.status(200).json(items);
   } catch (err) {
     console.error("Categorize handler error:", err);
     res.status(500).json({ error: "Unexpected server error" });

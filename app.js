@@ -202,27 +202,38 @@ async function processCapture(text) {
 
     if (!response.ok) throw new Error("API error");
 
-    const data = await response.json();
+    const items = await response.json(); // always an array now
 
     const session = getSession();
-    const newItem = {
-      id: Date.now(),
-      text: text,
-      summary: data.summary,
-      category: data.category,
-      priority: data.priority,
-      status: "Not Started",
-      timestamp: new Date().toISOString(),
-      read: false,
-      created_by: session ? session.id : null,
-    };
+    const baseTime = Date.now();
+    const savedItems = [];
 
-    await postItem(newItem);
-    cachedItems.unshift(newItem);
+    for (let i = 0; i < items.length; i++) {
+      const d = items[i];
+      const newItem = {
+        id: baseTime + i,
+        text: text,
+        summary: d.summary,
+        category: d.category,
+        priority: d.priority,
+        status: "Not Started",
+        timestamp: new Date(baseTime + i).toISOString(),
+        read: false,
+        created_by: session ? session.id : null,
+      };
+      await postItem(newItem);
+      savedItems.push(newItem);
+    }
+
+    // Prepend newest-first into the cache
+    for (let i = savedItems.length - 1; i >= 0; i--) {
+      cachedItems.unshift(savedItems[i]);
+    }
+
     renderInboxBadge();
-    renderRecentCaptures();
+    renderRecentCaptures(savedItems.length);
     showStatus("", false);
-    showToast("Captured");
+    showToast(savedItems.length > 1 ? `Captured ${savedItems.length} items` : "Captured");
   } catch (err) {
     showStatus("Could not process — please try again", true);
   } finally {
@@ -248,7 +259,8 @@ function showToast(message) {
 // ============================================================
 // RECENT CAPTURES LIST
 // ============================================================
-function renderRecentCaptures() {
+// newCount: how many of the top items just arrived (triggers stagger animation)
+function renderRecentCaptures(newCount = 0) {
   const items = cachedItems.slice(0, 5);
 
   if (items.length === 0) {
@@ -257,9 +269,11 @@ function renderRecentCaptures() {
   }
 
   recentList.innerHTML = items
-    .map((item) => {
+    .map((item, idx) => {
       const truncated =
-        item.text.length > 60 ? item.text.slice(0, 60) + "…" : item.text;
+        item.summary && item.summary.length < item.text.length
+          ? item.summary
+          : item.text.length > 60 ? item.text.slice(0, 60) + "…" : item.text;
       const time = new Date(item.timestamp).toLocaleString([], {
         month: "short",
         day: "numeric",
@@ -267,8 +281,14 @@ function renderRecentCaptures() {
         minute: "2-digit",
       });
 
+      // Stagger newly added items
+      const isNew = idx < newCount;
+      const staggerStyle = isNew && newCount > 1
+        ? `style="animation-delay:${idx * 80}ms"`
+        : "";
+
       return `
-        <div class="recent-item">
+        <div class="recent-item${isNew && newCount > 1 ? " recent-item-stagger" : ""}" ${staggerStyle}>
           <span class="priority-dot ${item.priority.toLowerCase()}"></span>
           <div class="recent-item-content">
             <p class="recent-item-text">${escapeHtml(truncated)}</p>
