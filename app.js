@@ -28,15 +28,6 @@ const textInput = document.getElementById("textInput");
 const statusBanner = document.getElementById("statusBanner");
 const recentList = document.getElementById("recentList");
 
-const modalBackdrop = document.getElementById("modalBackdrop");
-const digestGreeting = document.getElementById("digestGreeting");
-const digestDate = document.getElementById("digestDate");
-const statCompleted = document.getElementById("statCompleted");
-const statNew = document.getElementById("statNew");
-const statWaiting = document.getElementById("statWaiting");
-const statBlocked = document.getElementById("statBlocked");
-const dismissModalBtn = document.getElementById("dismissModalBtn");
-const startCapturingBtn = document.getElementById("startCapturingBtn");
 
 // ============================================================
 // INITIALIZATION
@@ -52,7 +43,6 @@ async function init() {
   await fetchItems();
   renderInboxBadge();
   renderRecentCaptures();
-  showDigestModal();
 }
 
 // ============================================================
@@ -78,46 +68,6 @@ async function postItem(item) {
   if (!response.ok) throw new Error("Failed to save item");
 }
 
-// ============================================================
-// LOGIN DIGEST MODAL
-// ============================================================
-function showDigestModal() {
-  const items = cachedItems;
-
-  const completed = items.filter((i) => i.status === "Done").length;
-  const newToday = items.filter((i) => isToday(i.timestamp)).length;
-  const waiting = items.filter((i) => i.status === "Waiting on Amit").length;
-  const blocked = items.filter((i) => i.status === "Blocked").length;
-
-  digestGreeting.textContent = `Welcome back, ${USER_NAME}`;
-  digestDate.textContent = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  statCompleted.textContent = completed;
-  statNew.textContent = newToday;
-  statWaiting.textContent = waiting;
-  statBlocked.textContent = blocked;
-
-  modalBackdrop.classList.add("visible");
-}
-
-function isToday(isoString) {
-  const d = new Date(isoString);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
-}
-
-function closeDigestModal() {
-  modalBackdrop.classList.remove("visible");
-}
 
 // ============================================================
 // INBOX BADGE — unread message count from localStorage threads
@@ -146,9 +96,6 @@ function bindEvents() {
   sidebarToggle.addEventListener("click", () => {
     sidebar.classList.toggle("open");
   });
-
-  dismissModalBtn.addEventListener("click", closeDigestModal);
-  startCapturingBtn.addEventListener("click", closeDigestModal);
 
   voiceBtn.addEventListener("click", handleVoiceButtonClick);
 
