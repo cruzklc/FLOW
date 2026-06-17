@@ -36,6 +36,7 @@ async function init() {
   setupVoiceRecognition();
   bindEvents();
   bindRecentListEvents();
+  bindRecentSectionControls();
 
   await fetchItems();
   renderInboxBadge();
@@ -330,51 +331,125 @@ function showToast(message) {
 // ============================================================
 // RECENT CAPTURES LIST
 // ============================================================
-// newCount: how many of the top items just arrived (triggers stagger animation)
-function renderRecentCaptures(newCount = 0) {
-  const items = cachedItems.slice(0, 5);
+const RECENT_DEFAULT = 5;
+const RECENT_MORE    = 10;
+const RECENT_COLLAPSED_KEY = "flow_recent_collapsed";
+const RECENT_EXPANDED_KEY  = "flow_recent_expanded";
 
-  if (items.length === 0) {
+let recentExpanded = false; // "View more" open state (resets on reload)
+
+const recentBody          = document.getElementById("recentBody");
+const recentOverflow      = document.getElementById("recentOverflow");
+const recentOverflowInner = document.getElementById("recentOverflowInner");
+const recentViewMoreBtn   = document.getElementById("recentViewMoreBtn");
+const recentViewMoreLabel = document.getElementById("recentViewMoreLabel");
+const recentTotalBadge    = document.getElementById("recentTotalBadge");
+const recentCollapseBtn   = document.getElementById("recentCollapseBtn");
+
+function isRecentCollapsed() {
+  return localStorage.getItem(RECENT_COLLAPSED_KEY) === "1";
+}
+
+function buildRecentItem(item, isNew, idx, newCount) {
+  const displayText =
+    item.summary && item.summary.length < item.text.length
+      ? item.summary
+      : item.text.length > 60 ? item.text.slice(0, 60) + "…" : item.text;
+  const time = new Date(item.timestamp).toLocaleString([], {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+  });
+  const staggerStyle = isNew && newCount > 1 ? `style="animation-delay:${idx * 80}ms"` : "";
+  return `
+    <div class="recent-item${isNew && newCount > 1 ? " recent-item-stagger" : ""} recent-item-clickable"
+         data-id="${item.id}" ${staggerStyle}>
+      <span class="priority-dot ${item.priority.toLowerCase()}"></span>
+      <div class="recent-item-content">
+        <p class="recent-item-text">${escapeHtml(displayText)}</p>
+        <div class="recent-item-meta">
+          <span class="badge-pill ${categoryClass(item.category)} editable-badge"
+                data-id="${item.id}" data-field="category"
+                style="font-size:10px;padding:2px 8px;">${item.category}</span>
+          <span class="badge-pill priority ${item.priority.toLowerCase()} editable-badge"
+                data-id="${item.id}" data-field="priority"
+                style="font-size:10px;padding:2px 8px;">${item.priority}</span>
+          <span>${time}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderRecentCaptures(newCount = 0) {
+  const total = cachedItems.length;
+  const collapsed = isRecentCollapsed();
+
+  // Total count badge (always visible)
+  if (total > 0) {
+    recentTotalBadge.textContent = total;
+    recentTotalBadge.style.display = "";
+  } else {
+    recentTotalBadge.style.display = "none";
+  }
+
+  // Collapse toggle state
+  recentBody.classList.toggle("collapsed", collapsed);
+  recentCollapseBtn.classList.toggle("rotated", collapsed);
+
+  if (total === 0) {
     recentList.innerHTML = `<p class="empty-state">Nothing captured yet — tap the button above to get started</p>`;
+    recentOverflow.innerHTML = "";
+    recentViewMoreBtn.style.display = "none";
     return;
   }
 
-  recentList.innerHTML = items
-    .map((item, idx) => {
-      const displayText =
-        item.summary && item.summary.length < item.text.length
-          ? item.summary
-          : item.text.length > 60 ? item.text.slice(0, 60) + "…" : item.text;
-      const time = new Date(item.timestamp).toLocaleString([], {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      });
-
-      const isNew = idx < newCount;
-      const staggerStyle = isNew && newCount > 1 ? `style="animation-delay:${idx * 80}ms"` : "";
-
-      return `
-        <div class="recent-item${isNew && newCount > 1 ? " recent-item-stagger" : ""} recent-item-clickable"
-             data-id="${item.id}" ${staggerStyle}>
-          <span class="priority-dot ${item.priority.toLowerCase()}"></span>
-          <div class="recent-item-content">
-            <p class="recent-item-text">${escapeHtml(displayText)}</p>
-            <div class="recent-item-meta">
-              <span class="badge-pill ${categoryClass(item.category)} editable-badge"
-                    data-id="${item.id}" data-field="category"
-                    style="font-size:10px;padding:2px 8px;">${item.category}</span>
-              <span class="badge-pill priority ${item.priority.toLowerCase()} editable-badge"
-                    data-id="${item.id}" data-field="priority"
-                    style="font-size:10px;padding:2px 8px;">${item.priority}</span>
-              <span>${time}</span>
-            </div>
-          </div>
-        </div>
-      `;
-    })
+  // First 5 items
+  const first = cachedItems.slice(0, RECENT_DEFAULT);
+  recentList.innerHTML = first
+    .map((item, idx) => buildRecentItem(item, idx < newCount, idx, newCount))
     .join("");
+
+  // Overflow items (6–15)
+  const extra = cachedItems.slice(RECENT_DEFAULT, RECENT_DEFAULT + RECENT_MORE);
+  if (extra.length === 0) {
+    recentOverflowInner.innerHTML = "";
+    recentOverflow.classList.remove("open");
+    recentViewMoreBtn.style.display = "none";
+    recentExpanded = false;
+    return;
+  }
+
+  recentOverflowInner.innerHTML = extra
+    .map((item, idx) => buildRecentItem(item, false, idx, 0))
+    .join("");
+  recentOverflow.classList.toggle("open", recentExpanded);
+
+  recentViewMoreBtn.style.display = "";
+  const chevron = recentViewMoreBtn.querySelector(".view-more-chevron");
+  if (recentExpanded) {
+    recentViewMoreLabel.textContent = "Show less";
+    chevron.style.transform = "rotate(180deg)";
+  } else {
+    recentViewMoreLabel.textContent = `View ${extra.length} more`;
+    chevron.style.transform = "";
+  }
+}
+
+function bindRecentSectionControls() {
+  // Collapse/expand the whole section
+  recentCollapseBtn.addEventListener("click", () => {
+    const nowCollapsed = !isRecentCollapsed();
+    localStorage.setItem(RECENT_COLLAPSED_KEY, nowCollapsed ? "1" : "0");
+    renderRecentCaptures();
+  });
+
+  // View more / show less
+  recentViewMoreBtn.addEventListener("click", () => {
+    recentExpanded = !recentExpanded;
+    renderRecentCaptures();
+    if (!recentExpanded) {
+      // Scroll back up so the first 5 are in view
+      recentList.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  });
 }
 
 // ============================================================
@@ -382,7 +457,8 @@ function renderRecentCaptures(newCount = 0) {
 // Single persistent delegated listener; safe across re-renders.
 // ============================================================
 function bindRecentListEvents() {
-  recentList.addEventListener("click", (e) => {
+  // Listen on the whole body so overflow items work too
+  recentBody.addEventListener("click", (e) => {
     // Badge dropdown
     const badge = e.target.closest(".editable-badge[data-field]");
     if (badge) {

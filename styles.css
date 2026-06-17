@@ -631,14 +631,111 @@ input { font-family: inherit; }
   padding: 40px 24px 0;
 }
 
-.recent-section h2 {
+/* Heading row with collapse toggle */
+.recent-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.recent-heading-row h2 {
   font-size: 16px;
   font-weight: 700;
-  margin: 0 0 16px;
+  margin: 0;
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.recent-total-badge {
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(124,58,237,0.18);
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 2px 8px;
+  display: none; /* shown via JS */
+}
+.recent-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+.recent-collapse-btn:hover { background: var(--surface-light); color: var(--text-primary); }
+.recent-chevron {
+  transition: transform 0.25s ease;
+}
+.recent-collapse-btn.rotated .recent-chevron { transform: rotate(-90deg); }
+
+/* Body — collapses smoothly */
+.recent-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.28s ease;
+  overflow: hidden;
+}
+.recent-body.collapsed {
+  grid-template-rows: 0fr;
+}
+.recent-body > * { min-height: 0; }
+
+/* Inner wrapper needed for grid collapse trick */
+.recent-body-inner {
+  overflow: hidden;
 }
 
 .recent-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* Overflow section — hidden until "View more" */
+.recent-overflow {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+  margin-top: 0;
+}
+.recent-overflow.open {
+  grid-template-rows: 1fr;
+  margin-top: 10px;
+}
+.recent-overflow > div {
+  min-height: 0;
+  overflow: hidden;
+}
+.recent-overflow-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 380px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+.recent-overflow-inner::-webkit-scrollbar { width: 4px; }
+.recent-overflow-inner::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* View more / show less button */
+.recent-view-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+  padding: 4px 0;
+}
+.recent-view-more-btn:hover { color: var(--text-primary); }
+.view-more-chevron {
+  transition: transform 0.22s ease;
+  flex-shrink: 0;
+}
 
 .recent-item {
   display: flex;

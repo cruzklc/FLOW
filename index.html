@@ -121,10 +121,26 @@
     <section class="status-banner" id="statusBanner"></section>
 
     <!-- Recent captures -->
-    <section class="recent-section">
-      <h2>Recent Captures</h2>
-      <div class="recent-list" id="recentList">
-        <p class="empty-state">Nothing captured yet — tap the button above to get started</p>
+    <section class="recent-section" id="recentSection">
+      <div class="recent-heading-row">
+        <h2>Recent Captures <span class="recent-total-badge" id="recentTotalBadge"></span></h2>
+        <button class="recent-collapse-btn" id="recentCollapseBtn" aria-label="Toggle recent captures">
+          <svg class="recent-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="recent-body" id="recentBody">
+        <div class="recent-body-inner">
+          <div class="recent-list" id="recentList">
+            <p class="empty-state">Nothing captured yet — tap the button above to get started</p>
+          </div>
+          <div class="recent-overflow" id="recentOverflow">
+            <div class="recent-overflow-inner" id="recentOverflowInner"></div>
+          </div>
+          <button class="recent-view-more-btn" id="recentViewMoreBtn" style="display:none">
+            <svg class="view-more-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span id="recentViewMoreLabel">View more</span>
+          </button>
+        </div>
       </div>
     </section>
   </main>
