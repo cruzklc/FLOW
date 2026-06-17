@@ -1019,20 +1019,19 @@ input { font-family: inherit; }
 }
 .detail-original-toggle.expanded .detail-toggle-chevron { transform: rotate(180deg); }
 
-/* Collapsed wrapper — height transition via grid trick */
+/* Collapsed wrapper */
 .detail-original-wrap {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.25s ease;
+  max-height: 0;
   overflow: hidden;
+  transition: max-height 0.28s ease;
 }
-.detail-original-wrap.open { grid-template-rows: 1fr; }
-.detail-original-wrap > blockquote { min-height: 0; margin: 0; }
-.detail-original-wrap.open > blockquote { margin: 8px 0 0; }
+.detail-original-wrap.open {
+  max-height: 400px;
+}
 
 /* Quote block */
 .detail-original-text {
-  margin: 0;
+  margin: 8px 0 0;
   padding: 10px 14px;
   background: rgba(255,255,255,0.03);
   border-radius: 8px;
