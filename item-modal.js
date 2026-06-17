@@ -112,8 +112,8 @@ function openItemModal(item, onUpdate) {
   backdrop.id = "itemDetailBackdrop";
   backdrop.className = "item-detail-backdrop";
 
-  const displayText = item.text || "";
   const hasSummary  = item.summary && item.summary !== item.text;
+  const primaryText = hasSummary ? item.summary : (item.text || "");
   const createdLabel = item.created_by_name
     ? `<div class="detail-meta-row"><span class="detail-meta-label">Created by</span><span class="detail-meta-val">${_esc(item.created_by_name)}</span></div>`
     : "";
@@ -132,8 +132,16 @@ function openItemModal(item, onUpdate) {
       </div>
 
       <div class="item-detail-body">
-        <p class="detail-full-text">${_esc(displayText)}</p>
-        ${hasSummary ? `<p class="detail-summary-text">↳ ${_esc(item.summary)}</p>` : ""}
+        <p class="detail-primary-text">${_esc(primaryText)}</p>
+        ${hasSummary ? `
+          <button class="detail-original-toggle" id="detailOriginalToggle" aria-expanded="false">
+            <svg class="detail-toggle-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            View original input
+          </button>
+          <div class="detail-original-wrap" id="detailOriginalWrap" aria-hidden="true">
+            <blockquote class="detail-original-text ${_catClass(item.category)}">${_esc(item.text)}</blockquote>
+          </div>
+        ` : ""}
 
         <div class="detail-row">
           <span class="detail-meta-label">Status</span>
@@ -168,6 +176,17 @@ function openItemModal(item, onUpdate) {
 
   document.body.appendChild(backdrop);
   requestAnimationFrame(() => requestAnimationFrame(() => backdrop.classList.add("visible")));
+
+  // ---- original input toggle ----
+  const origToggle = document.getElementById("detailOriginalToggle");
+  const origWrap   = document.getElementById("detailOriginalWrap");
+  if (origToggle && origWrap) {
+    origToggle.addEventListener("click", () => {
+      const open = origWrap.classList.toggle("open");
+      origToggle.setAttribute("aria-expanded", String(open));
+      origToggle.classList.toggle("expanded", open);
+    });
+  }
 
   // ---- close ----
   function close() {
