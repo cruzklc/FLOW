@@ -7,16 +7,19 @@
 // ============================================================
 
 const STATUS_COLUMNS = [
-  { key: "Not Started", colClass: "col-not-started" },
-  { key: "In Progress", colClass: "col-in-progress" },
-  { key: "Waiting on Amit", colClass: "col-waiting" },
-  { key: "Blocked", colClass: "col-blocked" },
-  { key: "Done", colClass: "col-done" },
+  { key: "Not Started",   label: "Not Started",     colClass: "col-not-started" },
+  { key: "In Progress",   label: "In Progress",     colClass: "col-in-progress" },
+  { key: "Waiting on Amit", label: "Waiting on Input", colClass: "col-waiting" },
+  { key: "Blocked",       label: "Blocked",         colClass: "col-blocked" },
+  { key: "Done",          label: "Done",            colClass: "col-done" },
 ];
 
 const CATEGORY_OPTIONS = ["All", "Action Item", "Decision Needed", "Idea", "FYI", "Urgent"];
 const PRIORITY_OPTIONS = ["All", "High", "Medium", "Low"];
-const STATUS_OPTIONS = ["All", ...STATUS_COLUMNS.map((c) => c.key)];
+const STATUS_OPTIONS = [
+  { value: "All", label: "All" },
+  ...STATUS_COLUMNS.map((c) => ({ value: c.key, label: c.label })),
+];
 
 // In-memory cache of all items from the database
 let cachedItems = [];
@@ -80,12 +83,14 @@ function buildFilterPills() {
 
 function buildPillGroup(container, options, filterKey) {
   options.forEach((opt) => {
+    const value = typeof opt === "object" ? opt.value : opt;
+    const label = typeof opt === "object" ? opt.label : opt;
     const pill = document.createElement("button");
-    pill.className = "filter-pill" + (opt === "All" ? " active" : "");
-    pill.textContent = opt;
-    pill.dataset.value = opt;
+    pill.className = "filter-pill" + (value === "All" ? " active" : "");
+    pill.textContent = label;
+    pill.dataset.value = value;
     pill.addEventListener("click", () => {
-      filters[filterKey] = opt;
+      filters[filterKey] = value;
       container.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("active"));
       pill.classList.add("active");
       updateFilterActiveDot();
@@ -258,10 +263,21 @@ function animateCount(el, target, fromZero) {
 }
 
 // ============================================================
-// INBOX BADGE
+// INBOX BADGE — unread message count from localStorage threads
 // ============================================================
+function getInboxUnreadCount() {
+  try {
+    const threads = JSON.parse(localStorage.getItem("flow_inbox_threads") || "[]");
+    return threads.reduce((count, thread) => {
+      return count + thread.messages.filter((m) => !m.read && m.sender !== "Kevin").length;
+    }, 0);
+  } catch {
+    return 0;
+  }
+}
+
 function renderInboxBadge() {
-  const unread = cachedItems.filter((i) => !i.read && !i.archived).length;
+  const unread = getInboxUnreadCount();
   inboxBadge.textContent = unread;
   inboxBadge.classList.toggle("hidden", unread === 0);
 }
@@ -287,7 +303,7 @@ function renderKanban(items) {
 
     columnEl.innerHTML = `
       <div class="kanban-column-header">
-        <span class="kanban-column-title">${col.key}</span>
+        <span class="kanban-column-title">${col.label}</span>
         <div class="kanban-column-header-right">
           <span class="kanban-count ${isDone ? "done-count" : ""}">${columnItems.length}</span>
           ${isDone ? chevronSvg : ""}
@@ -364,7 +380,7 @@ function buildItemCard(item) {
   STATUS_COLUMNS.forEach((col) => {
     const opt = document.createElement("option");
     opt.value = col.key;
-    opt.textContent = col.key;
+    opt.textContent = col.label;
     if (col.key === item.status) opt.selected = true;
     select.appendChild(opt);
   });
@@ -443,7 +459,7 @@ function renderList(items) {
           <select class="status-select list-status-select" data-id="${item.id}">
             ${STATUS_COLUMNS.map(
               (col) =>
-                `<option value="${col.key}" ${col.key === item.status ? "selected" : ""}>${col.key}</option>`
+                `<option value="${col.key}" ${col.key === item.status ? "selected" : ""}>${col.label}</option>`
             ).join("")}
           </select>
         </td>

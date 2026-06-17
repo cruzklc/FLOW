@@ -1,18 +1,11 @@
 // ============================================================
 // FLOW — app.js
-// All client-side functionality: voice capture, text capture,
-// Claude categorization (via /api/categorize), persistent storage
-// (via /api/items, backed by Postgres), login digest modal, and
-// UI rendering.
+// Voice/text capture, Claude categorization, auto-save to
+// Postgres, login digest modal, and recent captures list.
 // ============================================================
 
-// ---- EASY-TO-EDIT CONFIG -----------------------------------
-// Change the user's display name here. Used in greeting + modal + sidebar.
 const USER_NAME = "Kevin";
-// --------------------------------------------------------------
 
-// In-memory cache of items fetched from the database — refreshed
-// on load and whenever a new item is confirmed.
 let cachedItems = [];
 
 // ---- DOM REFERENCES ----
@@ -32,15 +25,6 @@ const voiceHint = document.getElementById("voiceHint");
 const textForm = document.getElementById("textForm");
 const textInput = document.getElementById("textInput");
 
-const resultCard = document.getElementById("resultCard");
-const resultCategory = document.getElementById("resultCategory");
-const resultPriority = document.getElementById("resultPriority");
-const resultText = document.getElementById("resultText");
-const resultTimestamp = document.getElementById("resultTimestamp");
-const editBtn = document.getElementById("editBtn");
-const dismissBtn = document.getElementById("dismissBtn");
-const confirmBtn = document.getElementById("confirmBtn");
-
 const statusBanner = document.getElementById("statusBanner");
 const recentList = document.getElementById("recentList");
 
@@ -53,9 +37,6 @@ const statWaiting = document.getElementById("statWaiting");
 const statBlocked = document.getElementById("statBlocked");
 const dismissModalBtn = document.getElementById("dismissModalBtn");
 const startCapturingBtn = document.getElementById("startCapturingBtn");
-
-// Holds the currently pending (unconfirmed) captured item
-let pendingItem = null;
 
 // ============================================================
 // INITIALIZATION
@@ -75,7 +56,7 @@ async function init() {
 }
 
 // ============================================================
-// DATABASE HELPERS (via /api/items, backed by Postgres)
+// DATABASE HELPERS
 // ============================================================
 async function fetchItems() {
   try {
@@ -98,14 +79,14 @@ async function postItem(item) {
 }
 
 // ============================================================
-// LOGIN DIGEST MODAL — reads real stats from the database
+// LOGIN DIGEST MODAL
 // ============================================================
 function showDigestModal() {
   const items = cachedItems;
 
-  const completed = items.filter((i) => i.status === "Completed").length;
+  const completed = items.filter((i) => i.status === "Done").length;
   const newToday = items.filter((i) => isToday(i.timestamp)).length;
-  const waiting = items.filter((i) => i.status === "Waiting").length;
+  const waiting = items.filter((i) => i.status === "Waiting on Amit").length;
   const blocked = items.filter((i) => i.status === "Blocked").length;
 
   digestGreeting.textContent = `Welcome back, ${USER_NAME}`;
@@ -139,10 +120,21 @@ function closeDigestModal() {
 }
 
 // ============================================================
-// INBOX BADGE — count of unread items
+// INBOX BADGE — unread message count from localStorage threads
 // ============================================================
+function getInboxUnreadCount() {
+  try {
+    const threads = JSON.parse(localStorage.getItem("flow_inbox_threads") || "[]");
+    return threads.reduce((count, thread) => {
+      return count + thread.messages.filter((m) => !m.read && m.sender !== "Kevin").length;
+    }, 0);
+  } catch {
+    return 0;
+  }
+}
+
 function renderInboxBadge() {
-  const unread = cachedItems.filter((i) => !i.read).length;
+  const unread = getInboxUnreadCount();
   inboxBadge.textContent = unread;
   inboxBadge.classList.toggle("hidden", unread === 0);
 }
@@ -167,10 +159,6 @@ function bindEvents() {
     textInput.value = "";
     processCapture(value);
   });
-
-  editBtn.addEventListener("click", toggleEditResult);
-  dismissBtn.addEventListener("click", dismissResultCard);
-  confirmBtn.addEventListener("click", confirmResultCard);
 }
 
 // ============================================================
@@ -206,7 +194,6 @@ function setupVoiceRecognition() {
 
   recognition.onend = () => {
     if (isRecording) {
-      // recognition ended without a result (silence) — reset UI
       stopRecordingUI();
     }
   };
@@ -258,12 +245,11 @@ function resetVoiceUI() {
 }
 
 // ============================================================
-// CAPTURE PROCESSING — sends text to Claude API for categorization
+// CAPTURE PROCESSING — categorize, auto-save, show toast
 // ============================================================
 async function processCapture(text) {
   showProcessingUI();
   showStatus("Processing your thought...", false);
-  hideResultCard();
 
   try {
     const response = await fetch("/api/categorize", {
@@ -276,19 +262,23 @@ async function processCapture(text) {
 
     const data = await response.json();
 
-    pendingItem = {
+    const newItem = {
       id: Date.now(),
       text: text,
       summary: data.summary,
       category: data.category,
       priority: data.priority,
-      status: "New",
+      status: "Not Started",
       timestamp: new Date().toISOString(),
       read: false,
     };
 
-    showResultCard(pendingItem);
+    await postItem(newItem);
+    cachedItems.unshift(newItem);
+    renderInboxBadge();
+    renderRecentCaptures();
     showStatus("", false);
+    showToast("Captured");
   } catch (err) {
     showStatus("Could not process — please try again", true);
   } finally {
@@ -302,67 +292,13 @@ function showStatus(message, isError) {
 }
 
 // ============================================================
-// RESULT CARD
+// TOAST NOTIFICATION
 // ============================================================
-function categoryClass(category) {
-  return "cat-" + category.toLowerCase().replace(/\s+/g, "-");
-}
-
-function showResultCard(item) {
-  resultCategory.textContent = item.category;
-  resultCategory.className = "badge-pill " + categoryClass(item.category);
-
-  resultPriority.textContent = item.priority;
-  resultPriority.className = "badge-pill priority " + item.priority.toLowerCase();
-
-  resultText.textContent = item.text;
-  resultText.contentEditable = "false";
-
-  resultTimestamp.textContent = new Date(item.timestamp).toLocaleString();
-
-  resultCard.classList.add("visible");
-}
-
-function hideResultCard() {
-  resultCard.classList.remove("visible");
-}
-
-function toggleEditResult() {
-  const isEditable = resultText.contentEditable === "true";
-  resultText.contentEditable = isEditable ? "false" : "true";
-  if (!isEditable) {
-    resultText.focus();
-    editBtn.textContent = "Done";
-  } else {
-    editBtn.textContent = "Edit";
-    if (pendingItem) pendingItem.text = resultText.textContent;
-  }
-}
-
-function dismissResultCard() {
-  pendingItem = null;
-  hideResultCard();
-  resetVoiceUI();
-}
-
-async function confirmResultCard() {
-  if (!pendingItem) return;
-
-  // Capture any inline edit before saving
-  pendingItem.text = resultText.textContent;
-
-  try {
-    await postItem(pendingItem);
-    cachedItems.unshift(pendingItem);
-    renderInboxBadge();
-    renderRecentCaptures();
-  } catch (err) {
-    showStatus("Could not save — please try again", true);
-  }
-
-  pendingItem = null;
-  hideResultCard();
-  resetVoiceUI();
+function showToast(message) {
+  const toast = document.getElementById("toast");
+  toast.textContent = "✓ " + message;
+  toast.classList.add("visible");
+  setTimeout(() => toast.classList.remove("visible"), 2200);
 }
 
 // ============================================================
@@ -401,6 +337,10 @@ function renderRecentCaptures() {
       `;
     })
     .join("");
+}
+
+function categoryClass(category) {
+  return "cat-" + category.toLowerCase().replace(/\s+/g, "-");
 }
 
 function escapeHtml(str) {

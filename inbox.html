@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FLOW — Thought Capture</title>
+  <title>FLOW — Inbox</title>
 
-  <!-- Google Font: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="inbox.css" />
 </head>
 <body>
 
@@ -33,7 +33,7 @@
     <div class="topbar-right">
       <button class="icon-btn" id="inboxBtn" aria-label="Inbox">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M22 12h-6l-2 3h-4l-2-3H2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-        <span class="badge" id="inboxBadge">0</span>
+        <span class="badge hidden" id="inboxBadge">0</span>
       </button>
       <button class="icon-btn" id="settingsBtn" aria-label="Settings">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h0a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h0a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v0a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" stroke-width="1.5"/></svg>
@@ -44,7 +44,7 @@
   <!-- ============ LEFT SIDEBAR ============ -->
   <nav class="sidebar" id="sidebar">
     <ul class="sidebar-nav">
-      <a href="index.html" class="sidebar-item active" data-tooltip="">
+      <a href="index.html" class="sidebar-item">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 12l9-9 9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 10v10a1 1 0 001 1h12a1 1 0 001-1V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Home</span>
       </a>
@@ -52,7 +52,7 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="9" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="12" width="7" height="9" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="16" width="7" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/></svg>
         <span>Dashboard</span>
       </a>
-      <a href="inbox.html" class="sidebar-item">
+      <a href="inbox.html" class="sidebar-item active">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 12h-6l-2 3h-4l-2-3H2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
         <span>Inbox</span>
       </a>
@@ -65,22 +65,21 @@
 
     <div class="sidebar-divider"></div>
 
-    <!-- USER INFO: change avatar/name here -->
     <div class="sidebar-user">
-      <div class="avatar" id="userAvatar">K</div>
-      <span class="user-name" id="userNameLabel">Kevin</span>
+      <div class="avatar">K</div>
+      <span class="user-name">Kevin</span>
     </div>
   </nav>
 
   <!-- ============ MOBILE BOTTOM NAV ============ -->
   <nav class="bottom-nav">
-    <a href="index.html" class="bottom-nav-item active">
+    <a href="index.html" class="bottom-nav-item">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 12l9-9 9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 10v10a1 1 0 001 1h12a1 1 0 001-1V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
     <a href="dashboard.html" class="bottom-nav-item">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="9" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="12" width="7" height="9" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="16" width="7" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/></svg>
     </a>
-    <a href="inbox.html" class="bottom-nav-item">
+    <a href="inbox.html" class="bottom-nav-item active">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M22 12h-6l-2 3h-4l-2-3H2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
     </a>
     <div class="bottom-nav-item disabled">
@@ -88,94 +87,82 @@
     </div>
   </nav>
 
-  <!-- ============ MAIN CONTENT ============ -->
-  <main class="main" id="main">
-    <section class="greeting">
-      <h1 id="greetingHeading">What's on your mind?</h1>
-      <p class="greeting-sub">Share a thought, an idea, something that needs doing, or anything on your mind</p>
-    </section>
+  <!-- ============ INBOX MAIN LAYOUT ============ -->
+  <main class="inbox-main" id="inboxMain">
 
-    <!-- Voice capture hero -->
-    <section class="voice-section">
-      <button class="voice-btn" id="voiceBtn" aria-label="Start recording">
-        <span class="voice-glow"></span>
-        <span class="voice-wave" id="voiceWave"></span>
-        <svg id="micIcon" width="36" height="36" viewBox="0 0 24 24" fill="none"><path d="M12 1a4 4 0 00-4 4v6a4 4 0 008 0V5a4 4 0 00-4-4z" stroke="currentColor" stroke-width="1.8"/><path d="M19 10v1a7 7 0 01-14 0v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 18v4M8 22h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        <svg id="stopIcon" width="30" height="30" viewBox="0 0 24 24" fill="none" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
-        <span class="spinner" id="voiceSpinner" style="display:none"></span>
-      </button>
-      <p class="voice-hint" id="voiceHint">Tap to start speaking</p>
-    </section>
-
-    <!-- Text input secondary option -->
-    <section class="text-input-section">
-      <form id="textForm" class="text-form">
-        <input type="text" id="textInput" placeholder="Or type something here..." autocomplete="off" />
-        <button type="submit" class="send-btn" aria-label="Send">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-      </form>
-    </section>
-
-    <!-- Processing / error states -->
-    <section class="status-banner" id="statusBanner"></section>
-
-    <!-- Recent captures -->
-    <section class="recent-section">
-      <h2>Recent Captures</h2>
-      <div class="recent-list" id="recentList">
-        <p class="empty-state">Nothing captured yet — tap the button above to get started</p>
+    <!-- LEFT PANEL: Thread list -->
+    <aside class="thread-panel" id="threadPanel">
+      <div class="thread-panel-header">
+        <div class="thread-panel-title-row">
+          <h2>Conversations</h2>
+          <button class="new-thread-btn" id="newThreadBtn" title="Start a new conversation">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="thread-search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input type="text" id="threadSearch" placeholder="Search conversations..." autocomplete="off" />
+        </div>
       </div>
+      <div class="thread-list" id="threadList"></div>
+    </aside>
+
+    <!-- RIGHT PANEL: Active conversation -->
+    <section class="conversation-panel" id="conversationPanel">
+
+      <!-- Mobile back button -->
+      <button class="back-btn" id="backBtn" aria-label="Back to conversations">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Conversations</span>
+      </button>
+
+      <!-- Conversation header -->
+      <div class="conversation-header" id="conversationHeader"></div>
+
+      <!-- Messages -->
+      <div class="messages-wrap" id="messagesWrap">
+        <div class="inbox-empty-state" id="inboxEmptyState">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none"><path d="M22 12h-6l-2 3h-4l-2-3H2" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          <p>Select a conversation to view messages</p>
+        </div>
+      </div>
+
+      <!-- Message input -->
+      <div class="message-input-wrap" id="messageInputWrap" style="display:none;">
+        <div class="message-input-inner">
+          <textarea id="messageInput" placeholder="Message Amit..." rows="1"></textarea>
+          <button class="send-message-btn" id="sendMessageBtn" aria-label="Send message">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+
     </section>
   </main>
 
-  <!-- ============ LOGIN DIGEST MODAL ============ -->
-  <div class="modal-backdrop" id="modalBackdrop">
-    <div class="modal" id="digestModal">
-      <h2 id="digestGreeting">Welcome back</h2>
-      <p class="digest-date" id="digestDate"></p>
+  <!-- ============ NEW THREAD MODAL ============ -->
+  <div class="modal-backdrop" id="newThreadBackdrop">
+    <div class="modal new-thread-modal">
+      <h2>New Conversation</h2>
+      <p class="digest-date">Start a message thread with Amit about a captured item</p>
 
-      <div class="stat-grid">
-        <div class="stat-card">
-          <div class="stat-icon green">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </div>
-          <div class="stat-value" id="statCompleted">0</div>
-          <div class="stat-label">Items Completed</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon blue">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-          </div>
-          <div class="stat-value" id="statNew">0</div>
-          <div class="stat-label">New Items Added</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon orange">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          </div>
-          <div class="stat-value" id="statWaiting">0</div>
-          <div class="stat-label">Waiting Your Input</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon red">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-          </div>
-          <div class="stat-value" id="statBlocked">0</div>
-          <div class="stat-label">Blocked Items</div>
-        </div>
+      <div class="new-thread-form">
+        <label class="new-thread-label">Link to a captured item (optional)</label>
+        <select id="itemLinkSelect" class="item-link-select">
+          <option value="">— No linked item —</option>
+        </select>
+
+        <label class="new-thread-label" style="margin-top:16px;">First message</label>
+        <textarea id="firstMessageInput" placeholder="What do you want to discuss?" rows="3" class="new-thread-textarea"></textarea>
       </div>
 
-      <div class="modal-actions">
-        <button class="btn-secondary" id="dismissModalBtn">Dismiss</button>
-        <button class="btn-primary" id="startCapturingBtn">Start Capturing</button>
+      <div class="modal-actions" style="margin-top:20px;">
+        <button class="btn-secondary" id="cancelNewThreadBtn">Cancel</button>
+        <button class="btn-primary" id="createThreadBtn">Start Conversation</button>
       </div>
     </div>
   </div>
 
-  <!-- Toast notification -->
-  <div id="toast" class="toast"></div>
-
-  <script src="app.js"></script>
+  <script src="inbox.js"></script>
 </body>
 </html>
