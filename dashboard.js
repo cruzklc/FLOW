@@ -147,6 +147,7 @@ function switchView(view) {
   listViewBtn.classList.toggle("active", view === "list");
   kanbanBoard.style.display = view === "kanban" ? "grid" : "none";
   listViewWrap.style.display = view === "list" ? "block" : "none";
+  renderBoardAndList();
 }
 
 // ============================================================
