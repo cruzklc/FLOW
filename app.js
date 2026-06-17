@@ -34,6 +34,7 @@ async function init() {
 
   setupVoiceRecognition();
   bindEvents();
+  bindRecentListEvents();
 
   await fetchItems();
   renderInboxBadge();
@@ -270,7 +271,7 @@ function renderRecentCaptures(newCount = 0) {
 
   recentList.innerHTML = items
     .map((item, idx) => {
-      const truncated =
+      const displayText =
         item.summary && item.summary.length < item.text.length
           ? item.summary
           : item.text.length > 60 ? item.text.slice(0, 60) + "…" : item.text;
@@ -281,19 +282,22 @@ function renderRecentCaptures(newCount = 0) {
         minute: "2-digit",
       });
 
-      // Stagger newly added items
       const isNew = idx < newCount;
-      const staggerStyle = isNew && newCount > 1
-        ? `style="animation-delay:${idx * 80}ms"`
-        : "";
+      const staggerStyle = isNew && newCount > 1 ? `style="animation-delay:${idx * 80}ms"` : "";
 
       return `
-        <div class="recent-item${isNew && newCount > 1 ? " recent-item-stagger" : ""}" ${staggerStyle}>
+        <div class="recent-item${isNew && newCount > 1 ? " recent-item-stagger" : ""} recent-item-clickable"
+             data-id="${item.id}" ${staggerStyle}>
           <span class="priority-dot ${item.priority.toLowerCase()}"></span>
           <div class="recent-item-content">
-            <p class="recent-item-text">${escapeHtml(truncated)}</p>
+            <p class="recent-item-text">${escapeHtml(displayText)}</p>
             <div class="recent-item-meta">
-              <span class="badge-pill ${categoryClass(item.category)}" style="font-size:10px;padding:2px 8px;">${item.category}</span>
+              <span class="badge-pill ${categoryClass(item.category)} editable-badge"
+                    data-id="${item.id}" data-field="category"
+                    style="font-size:10px;padding:2px 8px;">${item.category}</span>
+              <span class="badge-pill priority ${item.priority.toLowerCase()} editable-badge"
+                    data-id="${item.id}" data-field="priority"
+                    style="font-size:10px;padding:2px 8px;">${item.priority}</span>
               <span>${time}</span>
             </div>
           </div>
@@ -301,6 +305,45 @@ function renderRecentCaptures(newCount = 0) {
       `;
     })
     .join("");
+}
+
+// ============================================================
+// RECENT CAPTURES — interaction (badge dropdown + detail modal)
+// Single persistent delegated listener; safe across re-renders.
+// ============================================================
+function bindRecentListEvents() {
+  recentList.addEventListener("click", (e) => {
+    // Badge dropdown
+    const badge = e.target.closest(".editable-badge[data-field]");
+    if (badge) {
+      e.stopPropagation();
+      const id    = badge.dataset.id;
+      const field = badge.dataset.field;
+      const item  = cachedItems.find(i => String(i.id) === String(id));
+      if (!item) return;
+      const options = field === "category" ? ITEM_CATEGORIES : ITEM_PRIORITIES;
+      openBadgeDropdown(badge, options, item[field], async (newVal) => {
+        try {
+          await fetch(`/api/items/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ [field]: newVal }),
+          });
+          item[field] = newVal;
+          renderRecentCaptures();
+        } catch (err) { console.error(err); }
+      });
+      return;
+    }
+
+    // Card click → detail modal
+    const row = e.target.closest(".recent-item-clickable[data-id]");
+    if (row) {
+      const id   = row.dataset.id;
+      const item = cachedItems.find(i => String(i.id) === String(id));
+      if (item) openItemModal(item, () => renderRecentCaptures());
+    }
+  });
 }
 
 function categoryClass(category) {

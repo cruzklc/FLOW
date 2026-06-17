@@ -354,8 +354,8 @@ function buildItemCard(item) {
 
   card.innerHTML = `
     <div class="item-card-badges">
-      <span class="badge-pill ${categoryClass(item.category)}">${item.category}</span>
-      <span class="badge-pill priority ${item.priority.toLowerCase()}">${item.priority}</span>
+      <span class="badge-pill ${categoryClass(item.category)} editable-badge" title="Click to change category">${item.category}</span>
+      <span class="badge-pill priority ${item.priority.toLowerCase()} editable-badge" title="Click to change priority">${item.priority}</span>
     </div>
     <p class="item-card-text" title="${escapeHtml(item.text)}">${escapeHtml(item.summary || item.text)}</p>
     <p class="item-card-time" data-timestamp="${item.timestamp}" title="${new Date(item.timestamp).toLocaleString()}">${relativeTime(item.timestamp)}</p>
@@ -429,6 +429,49 @@ function buildItemCard(item) {
     } catch (err) {
       console.error("archive error:", err);
     }
+  });
+
+  // Editable category badge dropdown
+  const badges = card.querySelectorAll(".item-card-badges .badge-pill");
+  const catBadge = badges[0];
+  const prioBadge = badges[1];
+
+  catBadge.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openBadgeDropdown(catBadge, ITEM_CATEGORIES, item.category, async (newCat) => {
+      try {
+        await patchItem(item.id, { category: newCat });
+        item.category = newCat;
+        renderStats(false);
+        renderBoardAndList();
+      } catch (err) { console.error("category update error:", err); }
+    });
+  });
+
+  prioBadge.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openBadgeDropdown(prioBadge, ITEM_PRIORITIES, item.priority, async (newPrio) => {
+      try {
+        await patchItem(item.id, { priority: newPrio });
+        item.priority = newPrio;
+        renderStats(false);
+        renderBoardAndList();
+      } catch (err) { console.error("priority update error:", err); }
+    });
+  });
+
+  // Card body click → detail modal (exclude controls)
+  card.addEventListener("click", (e) => {
+    if (
+      e.target.closest(".item-card-badges") ||
+      e.target.closest(".item-card-controls") ||
+      e.target.closest(".item-notes")
+    ) return;
+    openItemModal(item, (updated) => {
+      Object.assign(item, updated);
+      renderStats(false);
+      renderBoardAndList();
+    });
   });
 
   return card;

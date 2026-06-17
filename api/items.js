@@ -11,7 +11,12 @@ const sql = neon(process.env.DATABASE_URL);
 module.exports = async function handler(req, res) {
   if (req.method === "GET") {
     try {
-      const items = await sql`SELECT * FROM items ORDER BY timestamp DESC`;
+      const items = await sql`
+        SELECT i.*, u.name AS created_by_name
+        FROM items i
+        LEFT JOIN users u ON u.id = i.created_by
+        ORDER BY i.timestamp DESC
+      `;
       res.status(200).json(items);
     } catch (err) {
       console.error("GET /api/items error:", err);

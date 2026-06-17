@@ -14,15 +14,17 @@ module.exports = async function handler(req, res) {
   const { id } = req.query;
 
   if (req.method === "PATCH") {
-    const { status, read, notes, archived } = req.body || {};
+    const { status, read, notes, archived, category, priority } = req.body || {};
 
     try {
       await sql`
         UPDATE items
-        SET status = COALESCE(${status}, status),
-            read = COALESCE(${read}, read),
-            notes = COALESCE(${notes}, notes),
+        SET status   = COALESCE(${status},   status),
+            read     = COALESCE(${read},     read),
+            notes    = COALESCE(${notes},    notes),
             archived = COALESCE(${archived}, archived),
+            category = COALESCE(${category}, category),
+            priority = COALESCE(${priority}, priority),
             completed_at = CASE
               WHEN ${status}::text = 'Done' THEN NOW()
               WHEN ${status}::text IS NOT NULL THEN NULL
