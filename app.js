@@ -104,18 +104,155 @@ function bindEvents() {
 }
 
 // ============================================================
-// MIC PERMISSION — warm up once so repeated taps don't re-prompt
+// MIC PERMISSION — iOS-aware permission flow
 // ============================================================
+const MIC_ASKED_KEY = "flow_mic_asked"; // set after first prompt
 let _micStream = null;
+let _micGranted = false;
 
+// Check current permission state without prompting
+async function getMicPermissionState() {
+  if (!navigator.permissions) return "unknown";
+  try {
+    const status = await navigator.permissions.query({ name: "microphone" });
+    return status.state; // "granted" | "denied" | "prompt"
+  } catch {
+    return "unknown";
+  }
+}
+
+// Show the pre-permission explainer (first time only), then request
 async function warmMicPermission() {
   if (!navigator.mediaDevices?.getUserMedia) return;
+
+  const state = await getMicPermissionState();
+  if (state === "granted") {
+    // Already have permission — warm the stream silently
+    await _requestMicStream();
+    return;
+  }
+  if (state === "denied") {
+    // Don't pre-request on load if already denied — let the button flow handle it
+    return;
+  }
+
+  // "prompt" or "unknown" — show explainer if we haven't asked before
+  const alreadyAsked = localStorage.getItem(MIC_ASKED_KEY) === "1";
+  if (!alreadyAsked) {
+    showMicExplainerModal();
+  }
+}
+
+async function _requestMicStream() {
   try {
     _micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    // Keep alive — SpeechRecognition reuses this grant without prompting
+    _micGranted = true;
+    localStorage.setItem(MIC_ASKED_KEY, "1");
   } catch {
-    // User denied or not available — SpeechRecognition will handle it
+    _micGranted = false;
+    localStorage.setItem(MIC_ASKED_KEY, "1");
   }
+}
+
+// ---- EXPLAINER MODAL (shown once before first iOS prompt) ----
+function showMicExplainerModal() {
+  const existing = document.getElementById("micExplainerBackdrop");
+  if (existing) return;
+
+  const backdrop = document.createElement("div");
+  backdrop.id = "micExplainerBackdrop";
+  backdrop.className = "modal-backdrop";
+  backdrop.innerHTML = `
+    <div class="modal mic-modal">
+      <div class="mic-modal-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <path d="M12 1a4 4 0 00-4 4v6a4 4 0 008 0V5a4 4 0 00-4-4z" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M19 10v1a7 7 0 01-14 0v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M12 18v4M8 22h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2>Enable voice capture</h2>
+      <p class="mic-modal-sub">FLOW needs microphone access to capture your voice notes. Tap <strong>Continue</strong> and then <strong>Allow</strong> on the next prompt.</p>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="micExplainerSkip">Use text instead</button>
+        <button class="btn-primary" id="micExplainerContinue">Continue</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  requestAnimationFrame(() => backdrop.classList.add("visible"));
+
+  document.getElementById("micExplainerContinue").addEventListener("click", async () => {
+    closeMicModal("micExplainerBackdrop");
+    await _requestMicStream();
+    if (!_micGranted) showMicDeniedModal();
+  });
+
+  document.getElementById("micExplainerSkip").addEventListener("click", () => {
+    closeMicModal("micExplainerBackdrop");
+    localStorage.setItem(MIC_ASKED_KEY, "1");
+    focusTextInput();
+  });
+}
+
+// ---- DENIED MODAL (shown when permission is blocked) ----
+function showMicDeniedModal() {
+  const existing = document.getElementById("micDeniedBackdrop");
+  if (existing) return;
+
+  const backdrop = document.createElement("div");
+  backdrop.id = "micDeniedBackdrop";
+  backdrop.className = "modal-backdrop";
+  backdrop.innerHTML = `
+    <div class="modal mic-modal">
+      <div class="mic-modal-icon mic-modal-icon--denied">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <path d="M12 1a4 4 0 00-4 4v6a4 4 0 008 0V5a4 4 0 00-4-4z" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M19 10v1a7 7 0 01-14 0v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M12 18v4M8 22h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="3" y1="3" x2="21" y2="21" stroke="var(--badge-urgent)" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2>Microphone access is turned off</h2>
+      <p class="mic-modal-sub">To enable voice capture, go to your <strong>iPhone Settings</strong>, scroll to find <strong>FLOW</strong>, and turn on <strong>Microphone</strong>. Then come back and try again.</p>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="micDeniedText">Use text instead</button>
+        <button class="btn-primary" id="micDeniedRetry">Try again</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  requestAnimationFrame(() => backdrop.classList.add("visible"));
+
+  document.getElementById("micDeniedRetry").addEventListener("click", async () => {
+    closeMicModal("micDeniedBackdrop");
+    const state = await getMicPermissionState();
+    if (state === "granted") {
+      await _requestMicStream();
+    } else if (state === "denied") {
+      showMicDeniedModal(); // still denied
+    } else {
+      await _requestMicStream();
+      if (!_micGranted) showMicDeniedModal();
+    }
+  });
+
+  document.getElementById("micDeniedText").addEventListener("click", () => {
+    closeMicModal("micDeniedBackdrop");
+    focusTextInput();
+  });
+}
+
+function closeMicModal(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove("visible");
+  setTimeout(() => { if (el.parentNode) el.remove(); }, 320);
+}
+
+function focusTextInput() {
+  textInput?.focus();
+  textInput?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 // ============================================================
@@ -172,10 +309,13 @@ function setupVoiceRecognition() {
   };
 
   recognition.onerror = (event) => {
-    // "no-speech" is normal during pauses — don't treat as fatal
     if (event.error === "no-speech") return;
-    // "aborted" fires when we manually stop — ignore
     if (event.error === "aborted") return;
+    if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      stopRecordingUI();
+      showMicDeniedModal();
+      return;
+    }
     stopRecordingUI();
     showStatus("Could not capture audio — please try again", true);
   };
@@ -193,10 +333,21 @@ function setupVoiceRecognition() {
   };
 }
 
-function handleVoiceButtonClick() {
+async function handleVoiceButtonClick() {
   if (!recognition) return;
 
   if (!isRecording) {
+    // Check permission before starting
+    const state = await getMicPermissionState();
+    if (state === "denied") {
+      showMicDeniedModal();
+      return;
+    }
+    if (state === "prompt" && !localStorage.getItem(MIC_ASKED_KEY)) {
+      showMicExplainerModal();
+      return;
+    }
+
     finalTranscript   = "";
     interimTranscript = "";
     startRecordingUI();
@@ -206,6 +357,8 @@ function handleVoiceButtonClick() {
         _recognitionActive = true;
       } catch (e) {
         stopRecordingUI();
+        // SpeechRecognition itself was denied
+        showMicDeniedModal();
       }
     }
   } else {

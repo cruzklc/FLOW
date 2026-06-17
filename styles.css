@@ -886,6 +886,39 @@ input { font-family: inherit; }
   justify-content: flex-end;
 }
 
+/* ============ MIC PERMISSION MODALS ============ */
+.mic-modal { text-align: center; }
+
+.mic-modal-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(124,58,237,0.15);
+  border: 1px solid rgba(124,58,237,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  color: var(--primary);
+}
+.mic-modal-icon--denied {
+  background: rgba(239,68,68,0.12);
+  border-color: rgba(239,68,68,0.3);
+  color: var(--badge-urgent);
+}
+
+.mic-modal h2 { font-size: 20px; margin-bottom: 10px; }
+
+.mic-modal-sub {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+.mic-modal-sub strong { color: var(--text-primary); }
+
+.mic-modal .modal-actions { justify-content: center; flex-wrap: wrap; }
+
 /* ============ IDENTITY MODAL ============ */
 .identity-backdrop {
   position: fixed;
