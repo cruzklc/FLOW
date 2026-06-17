@@ -183,7 +183,8 @@ function showMicExplainerModal() {
   requestAnimationFrame(() => backdrop.classList.add("visible"));
 
   document.getElementById("micExplainerContinue").addEventListener("click", async () => {
-    closeMicModal("micExplainerBackdrop");
+    const el = document.getElementById("micExplainerBackdrop");
+    if (el) el.remove();
     await _requestMicStream();
     if (!_micGranted) showMicDeniedModal();
   });
@@ -225,12 +226,15 @@ function showMicDeniedModal() {
   requestAnimationFrame(() => backdrop.classList.add("visible"));
 
   document.getElementById("micDeniedRetry").addEventListener("click", async () => {
-    closeMicModal("micDeniedBackdrop");
+    // Remove immediately so showMicDeniedModal can re-create it after the check
+    const el = document.getElementById("micDeniedBackdrop");
+    if (el) el.remove();
+
     const state = await getMicPermissionState();
     if (state === "granted") {
       await _requestMicStream();
     } else if (state === "denied") {
-      showMicDeniedModal(); // still denied
+      showMicDeniedModal();
     } else {
       await _requestMicStream();
       if (!_micGranted) showMicDeniedModal();
