@@ -1027,11 +1027,12 @@ input { font-family: inherit; }
   overflow: hidden;
 }
 .detail-original-wrap.open { grid-template-rows: 1fr; }
-.detail-original-wrap > blockquote { min-height: 0; }
+.detail-original-wrap > blockquote { min-height: 0; margin: 0; }
+.detail-original-wrap.open > blockquote { margin: 8px 0 0; }
 
 /* Quote block */
 .detail-original-text {
-  margin: 8px 0 0;
+  margin: 0;
   padding: 10px 14px;
   background: rgba(255,255,255,0.03);
   border-radius: 8px;
