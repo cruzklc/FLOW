@@ -1153,6 +1153,11 @@ input { font-family: inherit; }
 @media (max-width: 900px) {
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
+  /* Account for bottom nav so sidebar-user is never hidden under it */
+  .sidebar.open {
+    bottom: 70px;
+    overflow-y: auto;
+  }
   .main { margin-left: 0; padding-bottom: 90px; }
   .sidebar-toggle { display: flex; }
   .bottom-nav { display: flex; }
