@@ -32,7 +32,6 @@ async function init() {
   const session = getSession();
   greetingHeading.textContent = `What's on your mind, ${session ? session.name : ""}?`;
 
-  await warmMicPermission();
   setupVoiceRecognition();
   bindEvents();
   bindRecentListEvents();
@@ -106,56 +105,10 @@ function bindEvents() {
 // ============================================================
 // MIC PERMISSION — iOS-aware permission flow
 // ============================================================
-const MIC_ASKED_KEY = "flow_mic_asked"; // set after first prompt
-let _micStream = null;
-let _micGranted = false;
+const MIC_ASKED_KEY = "flow_mic_asked";
 
-// Check current permission state without prompting
-async function getMicPermissionState() {
-  if (!navigator.permissions) return "unknown";
-  try {
-    const status = await navigator.permissions.query({ name: "microphone" });
-    return status.state; // "granted" | "denied" | "prompt"
-  } catch {
-    return "unknown";
-  }
-}
-
-// Show the pre-permission explainer (first time only), then request
-async function warmMicPermission() {
-  if (!navigator.mediaDevices?.getUserMedia) return;
-
-  const state = await getMicPermissionState();
-  if (state === "granted") {
-    // Already have permission — warm the stream silently
-    await _requestMicStream();
-    return;
-  }
-  if (state === "denied") {
-    // Don't pre-request on load if already denied — let the button flow handle it
-    return;
-  }
-
-  // "prompt" or "unknown" — show explainer if we haven't asked before
-  const alreadyAsked = localStorage.getItem(MIC_ASKED_KEY) === "1";
-  if (!alreadyAsked) {
-    showMicExplainerModal();
-  }
-}
-
-async function _requestMicStream() {
-  try {
-    _micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    _micGranted = true;
-    localStorage.setItem(MIC_ASKED_KEY, "1");
-  } catch {
-    _micGranted = false;
-    localStorage.setItem(MIC_ASKED_KEY, "1");
-  }
-}
-
-// ---- EXPLAINER MODAL (shown once before first iOS prompt) ----
-function showMicExplainerModal() {
+// ---- EXPLAINER MODAL (shown once before first prompt) ----
+function showMicExplainerModal(onContinue) {
   const existing = document.getElementById("micExplainerBackdrop");
   if (existing) return;
 
@@ -182,11 +135,11 @@ function showMicExplainerModal() {
   document.body.appendChild(backdrop);
   requestAnimationFrame(() => backdrop.classList.add("visible"));
 
-  document.getElementById("micExplainerContinue").addEventListener("click", async () => {
+  document.getElementById("micExplainerContinue").addEventListener("click", () => {
     const el = document.getElementById("micExplainerBackdrop");
     if (el) el.remove();
-    await _requestMicStream();
-    if (!_micGranted) showMicDeniedModal();
+    localStorage.setItem(MIC_ASKED_KEY, "1");
+    onContinue();
   });
 
   document.getElementById("micExplainerSkip").addEventListener("click", () => {
@@ -196,7 +149,7 @@ function showMicExplainerModal() {
   });
 }
 
-// ---- DENIED MODAL (shown when permission is blocked) ----
+// ---- DENIED MODAL (shown when SpeechRecognition fires not-allowed) ----
 function showMicDeniedModal() {
   const existing = document.getElementById("micDeniedBackdrop");
   if (existing) return;
@@ -215,7 +168,7 @@ function showMicDeniedModal() {
         </svg>
       </div>
       <h2>Microphone access is turned off</h2>
-      <p class="mic-modal-sub">Tap <strong>Try again</strong> — if the allow prompt doesn't appear, go to <strong>iPhone Settings → Privacy &amp; Security → Microphone</strong> and turn on <strong>Safari</strong>. Then come back and try again.</p>
+      <p class="mic-modal-sub">Tap <strong>Try again</strong> — iOS will ask for permission. If it doesn't, go to <strong>iPhone Settings → Privacy &amp; Security → Microphone</strong> and turn on <strong>Safari</strong>, then come back.</p>
       <div class="modal-actions">
         <button class="btn-secondary" id="micDeniedText">Use text instead</button>
         <button class="btn-primary" id="micDeniedRetry">Try again</button>
@@ -225,19 +178,12 @@ function showMicDeniedModal() {
   document.body.appendChild(backdrop);
   requestAnimationFrame(() => backdrop.classList.add("visible"));
 
-  document.getElementById("micDeniedRetry").addEventListener("click", async () => {
+  document.getElementById("micDeniedRetry").addEventListener("click", () => {
     const el = document.getElementById("micDeniedBackdrop");
     if (el) el.remove();
-    // Always attempt getUserMedia — on iOS this re-triggers the native prompt
-    await _requestMicStream();
-    if (!_micGranted) {
-      showMicDeniedModal();
-      return;
-    }
-    // Permission granted — recreate recognition (old instance is stuck in denied state)
-    // then reset to clean idle so the user can tap normally
+    // Recreate recognition so it's fresh, then start recording
     setupVoiceRecognition();
-    resetVoiceUI();
+    startVoiceCapture();
   });
 
   document.getElementById("micDeniedText").addEventListener("click", () => {
@@ -316,8 +262,7 @@ function setupVoiceRecognition() {
     if (event.error === "aborted") return;
     if (event.error === "not-allowed" || event.error === "service-not-allowed") {
       stopRecordingUI();
-      // Only show denied modal if we don't already have a confirmed grant
-      if (!_micGranted) showMicDeniedModal();
+      showMicDeniedModal();
       return;
     }
     stopRecordingUI();
@@ -337,37 +282,32 @@ function setupVoiceRecognition() {
   };
 }
 
-async function handleVoiceButtonClick() {
+function startVoiceCapture() {
+  if (!recognition) return;
+  // Show explainer first time so user knows to tap Allow
+  if (!localStorage.getItem(MIC_ASKED_KEY)) {
+    showMicExplainerModal(() => startVoiceCapture());
+    return;
+  }
+  finalTranscript = "";
+  interimTranscript = "";
+  startRecordingUI();
+  if (!_recognitionActive) {
+    try {
+      recognition.start();
+      _recognitionActive = true;
+    } catch (e) {
+      stopRecordingUI();
+      showMicDeniedModal();
+    }
+  }
+}
+
+function handleVoiceButtonClick() {
   if (!recognition) return;
 
   if (!isRecording) {
-    // If we already got a stream this session, trust it and skip the Permissions API
-    // (iOS can return stale "denied" from Permissions API even after user allows)
-    if (!_micGranted) {
-      const state = await getMicPermissionState();
-      if (state === "denied") {
-        showMicDeniedModal();
-        return;
-      }
-      if (state === "prompt" && !localStorage.getItem(MIC_ASKED_KEY)) {
-        showMicExplainerModal();
-        return;
-      }
-    }
-
-    finalTranscript   = "";
-    interimTranscript = "";
-    startRecordingUI();
-    if (!_recognitionActive) {
-      try {
-        recognition.start();
-        _recognitionActive = true;
-      } catch (e) {
-        stopRecordingUI();
-        // SpeechRecognition itself was denied
-        showMicDeniedModal();
-      }
-    }
+    startVoiceCapture();
   } else {
     // User tapped stop — commit whatever we have
     isRecording = false;
