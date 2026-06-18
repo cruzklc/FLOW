@@ -240,7 +240,7 @@ function renderBoardAndList() {
   dashEmptyState.style.display = activeItems.length === 0 ? "block" : "none";
 
   overviewWrap.style.display = currentView === "overview" ? "block" : "none";
-  kanbanBoard.style.display  = currentView === "kanban"   ? "block" : "none";
+  kanbanBoard.style.display  = currentView === "kanban"   ? ""      : "none";
   listViewWrap.style.display = currentView === "list"     ? "block" : "none";
   mobileKanbanTabs.style.display = currentView === "kanban" && isMobile() ? "flex" : "none";
 
@@ -834,7 +834,7 @@ function renderList(items) {
     `;
 
     const tbody = section.querySelector(".cat-list-tbody");
-    catItems.forEach((item) => {
+    statusItems.forEach((item) => {
       const tr = document.createElement("tr");
       tr.dataset.id = item.id;
       tr.innerHTML = `
