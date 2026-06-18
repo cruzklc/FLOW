@@ -50,8 +50,8 @@ const FLOW_THEMES = {
     primary: "#EF4444",
     primaryRgb: "239 68 68",
     primaryDark: "#B91C1C",
-    secondary: "#F59E0B",
-    secondaryRgb: "245 158 11",
+    secondary: "#DC2626",
+    secondaryRgb: "220 38 38",
   },
 };
 
