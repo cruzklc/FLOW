@@ -1129,8 +1129,11 @@
 .cat-list-body.open {
   grid-template-rows: 1fr;
 }
-.cat-list-body .list-table {
+.cat-list-body-inner {
   min-height: 0;
+  overflow: hidden;
+}
+.cat-list-body-inner .list-table {
   margin: 0;
   border-top: 1px solid var(--border);
 }

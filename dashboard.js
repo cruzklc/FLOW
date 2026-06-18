@@ -818,18 +818,20 @@ function renderList(items) {
         </span>
       </div>
       <div class="cat-list-body ${collapsed ? "" : "open"}">
-        <table class="list-table">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Priority</th>
-              <th>Summary</th>
-              <th>Date</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody class="cat-list-tbody"></tbody>
-        </table>
+        <div class="cat-list-body-inner">
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Priority</th>
+                <th>Summary</th>
+                <th>Date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody class="cat-list-tbody"></tbody>
+          </table>
+        </div>
       </div>
     `;
 
