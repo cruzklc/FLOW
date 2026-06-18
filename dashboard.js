@@ -227,6 +227,7 @@ async function postItem(item) {
 function renderAll() {
   renderInboxBadge();
   renderStats(true);
+  renderHealthBar();
   renderBoardAndList();
 }
 
@@ -237,8 +238,12 @@ function renderBoardAndList() {
   dashEmptyState.style.display = activeItems.length === 0 ? "block" : "none";
 
   if (currentView === "kanban") {
+    kanbanBoard.style.display = "block";
+    listViewWrap.style.display = "none";
     renderKanban(items);
   } else {
+    kanbanBoard.style.display = "none";
+    listViewWrap.style.display = "block";
     renderList(items);
   }
 }
@@ -301,6 +306,52 @@ function animateCount(el, target, fromZero) {
   }
 
   requestAnimationFrame(tick);
+}
+
+// ============================================================
+// HEALTH BAR
+// ============================================================
+function renderHealthBar() {
+  const track = document.getElementById("healthBarTrack");
+  const legend = document.getElementById("healthBarLegend");
+  const summary = document.getElementById("healthBarSummary");
+  if (!track) return;
+
+  const active = cachedItems.filter((i) => !i.archived);
+  const total = active.length;
+
+  const segments = [
+    { key: "Not Started",     label: "New",        color: "var(--text-muted)",    filter: (i) => i.status === "Not Started" },
+    { key: "In Progress",     label: "In Progress", color: "var(--secondary)",    filter: (i) => i.status === "In Progress" },
+    { key: "Waiting",         label: "Waiting",    color: "#D97706",              filter: (i) => i.status === "Waiting on Amit" },
+    { key: "Blocked",         label: "Blocked",    color: "var(--badge-urgent)",  filter: (i) => i.status === "Blocked" },
+    { key: "Done",            label: "Done",       color: "#10B981",              filter: (i) => i.status === "Done" },
+  ];
+
+  const counts = segments.map((s) => ({ ...s, count: active.filter(s.filter).length }));
+  const done = counts.find((s) => s.key === "Done").count;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  summary.textContent = total > 0 ? `${pct}% complete · ${total} total` : "No items yet";
+
+  track.innerHTML = counts
+    .filter((s) => s.count > 0)
+    .map((s) => {
+      const w = ((s.count / total) * 100).toFixed(1);
+      return `<div class="health-bar-seg" style="width:${w}%;background:${s.color}" title="${s.label}: ${s.count}"></div>`;
+    })
+    .join("");
+
+  if (total === 0) track.innerHTML = `<div class="health-bar-seg" style="width:100%;background:rgba(255,255,255,0.08)"></div>`;
+
+  legend.innerHTML = counts
+    .map((s) => `
+      <span class="health-legend-item">
+        <span class="health-legend-dot" style="background:${s.color}"></span>
+        <span>${s.label}</span>
+        <span class="health-legend-count">${s.count}</span>
+      </span>`)
+    .join("");
 }
 
 // ============================================================
@@ -387,61 +438,66 @@ function bindKanbanSwipe() {
 }
 
 // ============================================================
-// KANBAN BOARD
+// OVERVIEW BOARDS (two focused boards: New Inputs + High Priority)
 // ============================================================
+const overviewCollapsed = { newInputs: false, highPriority: false };
+
 function renderKanban(items) {
   kanbanBoard.innerHTML = "";
-  const mobile = isMobile();
+  mobileKanbanTabs.style.display = "none";
+  kanbanBoard.style.display = "block";
 
-  renderMobileKanbanTabs(items);
+  const boards = [
+    {
+      key: "newInputs",
+      title: "New Inputs",
+      subtitle: "Not Started",
+      dotColor: "var(--text-muted)",
+      items: items.filter((i) => i.status === "Not Started"),
+    },
+    {
+      key: "highPriority",
+      title: "High Priority",
+      subtitle: "High priority · active",
+      dotColor: "var(--badge-urgent)",
+      items: items.filter((i) => i.priority === "High" && i.status !== "Done"),
+    },
+  ];
 
-  STATUS_COLUMNS.forEach((col, idx) => {
-    const columnItems = items.filter((i) => i.status === col.key);
-    const isDone = col.key === "Done";
+  boards.forEach((board) => {
+    const collapsed = overviewCollapsed[board.key];
+    const section = document.createElement("div");
+    section.className = "overview-board";
 
-    const columnEl = document.createElement("div");
-    columnEl.className = `kanban-column ${col.colClass}` + (isDone ? " collapsible" : "");
-
-    if (mobile) {
-      columnEl.style.display = idx === activeMobileCol ? "" : "none";
-      if (idx === activeMobileCol) columnEl.classList.add("mobile-active");
-    }
-
-    const chevronSvg = `
-      <span class="collapse-chevron ${isDone && !doneCollapsed ? "rotated" : ""}">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </span>
-    `;
-
-    columnEl.innerHTML = `
-      <div class="kanban-column-header">
-        <span class="kanban-column-title">${col.label}</span>
-        <div class="kanban-column-header-right">
-          <span class="kanban-count ${isDone ? "done-count" : ""}">${columnItems.length}</span>
-          ${isDone ? chevronSvg : ""}
+    section.innerHTML = `
+      <div class="overview-board-header" data-key="${board.key}">
+        <div class="overview-board-title-wrap">
+          <span class="overview-board-dot" style="background:${board.dotColor}"></span>
+          <span class="overview-board-title">${board.title}</span>
+          <span class="overview-board-count">${board.items.length}</span>
         </div>
+        <span class="collapse-chevron ${!collapsed ? "rotated" : ""}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
       </div>
-      <div class="kanban-cards fade-in-group"></div>
+      <div class="overview-board-body ${collapsed ? "" : "open"}">
+        <div class="overview-cards fade-in-group"></div>
+      </div>
     `;
 
-    const cardsWrap = columnEl.querySelector(".kanban-cards");
-
-    if (isDone && doneCollapsed && !mobile) {
-      cardsWrap.innerHTML = `<div class="done-collapsed-placeholder">${columnItems.length} completed — click to view</div>`;
-    } else if (columnItems.length === 0) {
-      cardsWrap.innerHTML = `<div class="kanban-empty">No items</div>`;
+    const cardsWrap = section.querySelector(".overview-cards");
+    if (board.items.length === 0) {
+      cardsWrap.innerHTML = `<div class="kanban-empty">All clear here</div>`;
     } else {
-      columnItems.forEach((item) => cardsWrap.appendChild(buildItemCard(item)));
+      board.items.forEach((item) => cardsWrap.appendChild(buildItemCard(item)));
     }
 
-    if (isDone && !mobile) {
-      columnEl.querySelector(".kanban-column-header").addEventListener("click", () => {
-        doneCollapsed = !doneCollapsed;
-        renderBoardAndList();
-      });
-    }
+    section.querySelector(".overview-board-header").addEventListener("click", () => {
+      overviewCollapsed[board.key] = !overviewCollapsed[board.key];
+      renderBoardAndList();
+    });
 
-    kanbanBoard.appendChild(columnEl);
+    kanbanBoard.appendChild(section);
   });
 }
 
@@ -603,71 +659,119 @@ function bumpColumnCounts() {
 }
 
 // ============================================================
-// LIST VIEW
+// LIST VIEW — grouped by category
 // ============================================================
+const listCollapsed = {};
+
 function renderList(items) {
+  const wrap = listViewWrap;
+  wrap.innerHTML = "";
+
   if (items.length === 0) {
-    listTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 30px;">No items match your filters</td></tr>`;
+    wrap.innerHTML = `<div class="dash-empty-msg">No items match your filters</div>`;
     return;
   }
 
-  listTableBody.innerHTML = items
-    .map(
-      (item) => `
-      <tr data-id="${item.id}">
-        <td><span class="badge-pill ${categoryClass(item.category)}" style="font-size:10px;padding:3px 9px;">${item.category}</span></td>
-        <td><span class="badge-pill priority ${item.priority.toLowerCase()}" style="font-size:10px;padding:3px 9px;">${item.priority}</span></td>
+  const categoryOrder = ["Urgent", "Action Item", "Decision Needed", "Idea", "FYI"];
+  const grouped = {};
+  categoryOrder.forEach((c) => { grouped[c] = []; });
+  items.forEach((item) => {
+    const cat = item.category || "FYI";
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(item);
+  });
+
+  categoryOrder.forEach((cat) => {
+    const catItems = grouped[cat];
+    if (catItems.length === 0) return;
+
+    if (listCollapsed[cat] === undefined) listCollapsed[cat] = false;
+    const collapsed = listCollapsed[cat];
+
+    const section = document.createElement("div");
+    section.className = "cat-list-section";
+
+    section.innerHTML = `
+      <div class="cat-list-header" data-cat="${cat}">
+        <div class="cat-list-title-wrap">
+          <span class="badge-pill ${categoryClass(cat)}" style="font-size:10px;padding:2px 8px;">${cat}</span>
+          <span class="cat-list-count">${catItems.length}</span>
+        </div>
+        <span class="collapse-chevron ${!collapsed ? "rotated" : ""}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </div>
+      <div class="cat-list-body ${collapsed ? "" : "open"}">
+        <table class="list-table">
+          <thead>
+            <tr>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Summary</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody class="cat-list-tbody"></tbody>
+        </table>
+      </div>
+    `;
+
+    const tbody = section.querySelector(".cat-list-tbody");
+    catItems.forEach((item) => {
+      const tr = document.createElement("tr");
+      tr.dataset.id = item.id;
+      tr.innerHTML = `
+        <td><span class="badge-pill priority ${item.priority.toLowerCase()}" style="font-size:10px;padding:2px 8px;">${item.priority}</span></td>
         <td>
           <select class="status-select list-status-select" data-id="${item.id}">
-            ${STATUS_COLUMNS.map(
-              (col) =>
-                `<option value="${col.key}" ${col.key === item.status ? "selected" : ""}>${col.label}</option>`
-            ).join("")}
+            ${STATUS_COLUMNS.map((col) => `<option value="${col.key}" ${col.key === item.status ? "selected" : ""}>${col.label}</option>`).join("")}
           </select>
         </td>
         <td class="list-text-cell" title="${escapeHtml(item.text)}">${escapeHtml(item.summary || item.text)}</td>
-        <td data-timestamp="${item.timestamp}" title="${new Date(item.timestamp).toLocaleString()}">${relativeTime(item.timestamp)}</td>
+        <td data-timestamp="${item.timestamp}">${relativeTime(item.timestamp)}</td>
         <td class="list-actions-cell">
           <button class="icon-action-btn list-archive-btn" data-id="${item.id}" title="Archive" aria-label="Archive">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="5" rx="1" stroke="currentColor" stroke-width="1.8"/><path d="M5 9v9a2 2 0 002 2h10a2 2 0 002-2V9" stroke="currentColor" stroke-width="1.8"/><path d="M10 13h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
         </td>
-      </tr>
-    `
-    )
-    .join("");
-
-  listTableBody.querySelectorAll(".list-status-select").forEach((select) => {
-    select.addEventListener("change", async () => {
-      const id = select.dataset.id;
-      const item = cachedItems.find((i) => String(i.id) === String(id));
-      const newStatus = select.value;
-      try {
-        await patchItem(id, { status: newStatus });
-        if (item) {
-          item.status = newStatus;
-          item.completed_at = newStatus === "Done" ? new Date().toISOString() : null;
-        }
-        renderStats(false);
-        renderBoardAndList();
-      } catch (err) {
-        console.error("status update error:", err);
-      }
+      `;
+      tbody.appendChild(tr);
     });
-  });
 
-  listTableBody.querySelectorAll(".list-archive-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const id = btn.dataset.id;
-      const item = cachedItems.find((i) => String(i.id) === String(id));
-      try {
-        await patchItem(id, { archived: true });
-        if (item) item.archived = true;
-        renderAll();
-      } catch (err) {
-        console.error("archive error:", err);
-      }
+    section.querySelector(".cat-list-header").addEventListener("click", () => {
+      listCollapsed[cat] = !listCollapsed[cat];
+      renderBoardAndList();
     });
+
+    tbody.querySelectorAll(".list-status-select").forEach((select) => {
+      select.addEventListener("change", async () => {
+        const id = select.dataset.id;
+        const item = cachedItems.find((i) => String(i.id) === String(id));
+        const newStatus = select.value;
+        try {
+          await patchItem(id, { status: newStatus });
+          if (item) { item.status = newStatus; item.completed_at = newStatus === "Done" ? new Date().toISOString() : null; }
+          renderStats(false);
+          renderHealthBar();
+          renderBoardAndList();
+        } catch (err) { console.error("status update error:", err); }
+      });
+    });
+
+    tbody.querySelectorAll(".list-archive-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        const item = cachedItems.find((i) => String(i.id) === String(id));
+        try {
+          await patchItem(id, { archived: true });
+          if (item) item.archived = true;
+          renderAll();
+        } catch (err) { console.error("archive error:", err); }
+      });
+    });
+
+    wrap.appendChild(section);
   });
 }
 
