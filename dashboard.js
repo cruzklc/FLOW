@@ -765,7 +765,7 @@ function bumpColumnCounts() {
 }
 
 // ============================================================
-// LIST VIEW — grouped by category
+// LIST VIEW — grouped by status
 // ============================================================
 const listCollapsed = {};
 
@@ -778,30 +778,40 @@ function renderList(items) {
     return;
   }
 
-  const categoryOrder = ["Urgent", "Action Item", "Decision Needed", "Idea", "FYI"];
+  const statusOrder = STATUS_COLUMNS.map((c) => c.key);
   const grouped = {};
-  categoryOrder.forEach((c) => { grouped[c] = []; });
+  statusOrder.forEach((s) => { grouped[s] = []; });
   items.forEach((item) => {
-    const cat = item.category || "FYI";
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(item);
+    const s = item.status || "Not Started";
+    if (!grouped[s]) grouped[s] = [];
+    grouped[s].push(item);
   });
 
-  categoryOrder.forEach((cat) => {
-    const catItems = grouped[cat];
-    if (catItems.length === 0) return;
+  const statusColors = {
+    "Not Started":     "var(--text-muted)",
+    "In Progress":     "var(--secondary)",
+    "Waiting on Amit": "#D97706",
+    "Blocked":         "var(--badge-urgent)",
+    "Done":            "#10B981",
+  };
 
-    if (listCollapsed[cat] === undefined) listCollapsed[cat] = false;
-    const collapsed = listCollapsed[cat];
+  statusOrder.forEach((status) => {
+    const statusItems = grouped[status];
+    if (statusItems.length === 0) return;
+
+    const label = STATUS_COLUMNS.find((c) => c.key === status)?.label || status;
+    if (listCollapsed[status] === undefined) listCollapsed[status] = status === "Done";
+    const collapsed = listCollapsed[status];
 
     const section = document.createElement("div");
     section.className = "cat-list-section";
 
     section.innerHTML = `
-      <div class="cat-list-header" data-cat="${cat}">
+      <div class="cat-list-header" data-status="${status}">
         <div class="cat-list-title-wrap">
-          <span class="badge-pill ${categoryClass(cat)}" style="font-size:10px;padding:2px 8px;">${cat}</span>
-          <span class="cat-list-count">${catItems.length}</span>
+          <span class="cat-list-status-dot" style="background:${statusColors[status] || "var(--text-muted)"}"></span>
+          <span class="cat-list-status-label">${label}</span>
+          <span class="cat-list-count">${statusItems.length}</span>
         </div>
         <span class="collapse-chevron ${!collapsed ? "rotated" : ""}">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -811,8 +821,8 @@ function renderList(items) {
         <table class="list-table">
           <thead>
             <tr>
+              <th>Category</th>
               <th>Priority</th>
-              <th>Status</th>
               <th>Summary</th>
               <th>Date</th>
               <th></th>
@@ -828,12 +838,8 @@ function renderList(items) {
       const tr = document.createElement("tr");
       tr.dataset.id = item.id;
       tr.innerHTML = `
+        <td><span class="badge-pill ${categoryClass(item.category)}" style="font-size:10px;padding:2px 8px;">${item.category}</span></td>
         <td><span class="badge-pill priority ${item.priority.toLowerCase()}" style="font-size:10px;padding:2px 8px;">${item.priority}</span></td>
-        <td>
-          <select class="status-select list-status-select" data-id="${item.id}">
-            ${STATUS_COLUMNS.map((col) => `<option value="${col.key}" ${col.key === item.status ? "selected" : ""}>${col.label}</option>`).join("")}
-          </select>
-        </td>
         <td class="list-text-cell" title="${escapeHtml(item.text)}">${escapeHtml(item.summary || item.text)}</td>
         <td data-timestamp="${item.timestamp}">${relativeTime(item.timestamp)}</td>
         <td class="list-actions-cell">
@@ -846,7 +852,7 @@ function renderList(items) {
     });
 
     section.querySelector(".cat-list-header").addEventListener("click", () => {
-      listCollapsed[cat] = !listCollapsed[cat];
+      listCollapsed[status] = !listCollapsed[status];
       renderBoardAndList();
     });
 

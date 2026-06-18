@@ -302,10 +302,19 @@
 
 /* ============ KANBAN BOARD ============ */
 .kanban-board {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(220px, 1fr));
+  display: flex;
+  flex-direction: row;
   gap: 18px;
   align-items: start;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.kanban-board .kanban-column {
+  flex: 0 0 260px;
+  min-width: 0;
 }
 
 .kanban-column {
@@ -811,7 +820,7 @@
 /* ============ RESPONSIVE ============ */
 @media (max-width: 1100px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
-  .kanban-board { grid-template-columns: repeat(2, minmax(220px, 1fr)); overflow-x: auto; }
+  .kanban-board { flex-direction: row; }
   .filter-dropdown { width: 300px; }
 }
 
@@ -1074,8 +1083,19 @@
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 14px;
-  margin-bottom: 14px;
+  margin-bottom: 20px;
   overflow: hidden;
+}
+.cat-list-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cat-list-status-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
 }
 .cat-list-header {
   display: flex;
