@@ -315,6 +315,7 @@ function stopRecordingUI() {
 }
 
 function showProcessingUI() {
+  voiceBtn.classList.remove("recording", "recording-paused");
   micIcon.style.display     = "none";
   stopIcon.style.display    = "none";
   voiceSpinner.style.display = "block";
