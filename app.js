@@ -40,6 +40,11 @@ async function init() {
   await fetchItems();
   renderInboxBadge();
   renderRecentCaptures();
+
+  if (localStorage.getItem("flow_mic_autostart")) {
+    localStorage.removeItem("flow_mic_autostart");
+    startVoiceCapture();
+  }
 }
 
 // ============================================================
@@ -142,6 +147,7 @@ function showMicExplainerModal(onContinue) {
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       localStorage.setItem(MIC_ASKED_KEY, "1");
+      localStorage.setItem("flow_mic_autostart", "1");
       window.location.reload();
     } catch {
       // User denied — stay at idle, next tap will re-show explainer + prompt
