@@ -141,9 +141,8 @@ function showMicExplainerModal(onContinue) {
     // getUserMedia triggers the iOS native Allow/Don't Allow prompt
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Keep stream open — iOS needs active mic session for SpeechRecognition to work
       localStorage.setItem(MIC_ASKED_KEY, "1");
-      onContinue();
+      window.location.reload();
     } catch {
       // User denied — stay at idle, next tap will re-show explainer + prompt
       resetVoiceUI();
