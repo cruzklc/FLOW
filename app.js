@@ -135,11 +135,20 @@ function showMicExplainerModal(onContinue) {
   document.body.appendChild(backdrop);
   requestAnimationFrame(() => backdrop.classList.add("visible"));
 
-  document.getElementById("micExplainerContinue").addEventListener("click", () => {
+  document.getElementById("micExplainerContinue").addEventListener("click", async () => {
     const el = document.getElementById("micExplainerBackdrop");
     if (el) el.remove();
     localStorage.setItem(MIC_ASKED_KEY, "1");
-    onContinue();
+    // getUserMedia triggers the iOS native permission prompt
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop()); // release immediately, we just needed the prompt
+      onContinue();
+    } catch {
+      // User denied — clear key so next tap re-prompts
+      localStorage.removeItem(MIC_ASKED_KEY);
+      resetVoiceUI();
+    }
   });
 
   document.getElementById("micExplainerSkip").addEventListener("click", () => {
