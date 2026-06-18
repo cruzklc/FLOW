@@ -149,48 +149,6 @@ function showMicExplainerModal(onContinue) {
   });
 }
 
-// ---- DENIED MODAL (shown when SpeechRecognition fires not-allowed) ----
-function showMicDeniedModal() {
-  const existing = document.getElementById("micDeniedBackdrop");
-  if (existing) return;
-
-  const backdrop = document.createElement("div");
-  backdrop.id = "micDeniedBackdrop";
-  backdrop.className = "modal-backdrop";
-  backdrop.innerHTML = `
-    <div class="modal mic-modal">
-      <div class="mic-modal-icon mic-modal-icon--denied">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-          <path d="M12 1a4 4 0 00-4 4v6a4 4 0 008 0V5a4 4 0 00-4-4z" stroke="currentColor" stroke-width="1.8"/>
-          <path d="M19 10v1a7 7 0 01-14 0v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          <path d="M12 18v4M8 22h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="3" y1="3" x2="21" y2="21" stroke="var(--badge-urgent)" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <h2>Microphone access is turned off</h2>
-      <p class="mic-modal-sub">Tap <strong>Try again</strong> — iOS will ask for permission. If it doesn't, go to <strong>iPhone Settings → Privacy &amp; Security → Microphone</strong> and turn on <strong>Safari</strong>, then come back.</p>
-      <div class="modal-actions">
-        <button class="btn-secondary" id="micDeniedText">Use text instead</button>
-        <button class="btn-primary" id="micDeniedRetry">Try again</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(backdrop);
-  requestAnimationFrame(() => backdrop.classList.add("visible"));
-
-  document.getElementById("micDeniedRetry").addEventListener("click", () => {
-    const el = document.getElementById("micDeniedBackdrop");
-    if (el) el.remove();
-    // Recreate recognition so it's fresh, then start recording
-    setupVoiceRecognition();
-    startVoiceCapture();
-  });
-
-  document.getElementById("micDeniedText").addEventListener("click", () => {
-    closeMicModal("micDeniedBackdrop");
-    focusTextInput();
-  });
-}
 
 function closeMicModal(id) {
   const el = document.getElementById(id);
@@ -261,8 +219,10 @@ function setupVoiceRecognition() {
     if (event.error === "no-speech") return;
     if (event.error === "aborted") return;
     if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      // Clear the asked flag so next tap re-triggers the explainer + iOS prompt
+      localStorage.removeItem(MIC_ASKED_KEY);
       stopRecordingUI();
-      showMicDeniedModal();
+      resetVoiceUI();
       return;
     }
     stopRecordingUI();
@@ -297,8 +257,9 @@ function startVoiceCapture() {
       recognition.start();
       _recognitionActive = true;
     } catch (e) {
+      localStorage.removeItem(MIC_ASKED_KEY);
       stopRecordingUI();
-      showMicDeniedModal();
+      resetVoiceUI();
     }
   }
 }
