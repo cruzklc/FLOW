@@ -138,15 +138,14 @@ function showMicExplainerModal(onContinue) {
   document.getElementById("micExplainerContinue").addEventListener("click", async () => {
     const el = document.getElementById("micExplainerBackdrop");
     if (el) el.remove();
-    localStorage.setItem(MIC_ASKED_KEY, "1");
-    // getUserMedia triggers the iOS native permission prompt
+    // getUserMedia triggers the iOS native Allow/Don't Allow prompt
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop()); // release immediately, we just needed the prompt
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Keep stream open — iOS needs active mic session for SpeechRecognition to work
+      localStorage.setItem(MIC_ASKED_KEY, "1");
       onContinue();
     } catch {
-      // User denied — clear key so next tap re-prompts
-      localStorage.removeItem(MIC_ASKED_KEY);
+      // User denied — stay at idle, next tap will re-show explainer + prompt
       resetVoiceUI();
     }
   });
@@ -228,8 +227,6 @@ function setupVoiceRecognition() {
     if (event.error === "no-speech") return;
     if (event.error === "aborted") return;
     if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-      // Clear the asked flag so next tap re-triggers the explainer + iOS prompt
-      localStorage.removeItem(MIC_ASKED_KEY);
       stopRecordingUI();
       resetVoiceUI();
       return;
@@ -266,7 +263,6 @@ function startVoiceCapture() {
       recognition.start();
       _recognitionActive = true;
     } catch (e) {
-      localStorage.removeItem(MIC_ASKED_KEY);
       stopRecordingUI();
       resetVoiceUI();
     }
