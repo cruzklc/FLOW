@@ -1121,19 +1121,7 @@
   border-radius: 999px;
   padding: 1px 8px;
 }
-.cat-list-body {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.28s ease;
-}
-.cat-list-body.open {
-  grid-template-rows: 1fr;
-}
-.cat-list-body-inner {
-  min-height: 0;
-  overflow: hidden;
-}
-.cat-list-body-inner .list-table {
+.cat-list-body .list-table {
   margin: 0;
   border-top: 1px solid var(--border);
 }

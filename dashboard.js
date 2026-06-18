@@ -817,21 +817,19 @@ function renderList(items) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
       </div>
-      <div class="cat-list-body ${collapsed ? "" : "open"}">
-        <div class="cat-list-body-inner">
-          <table class="list-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Priority</th>
-                <th>Summary</th>
-                <th>Date</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody class="cat-list-tbody"></tbody>
-          </table>
-        </div>
+      <div class="cat-list-body" style="${collapsed ? "display:none" : ""}">
+        <table class="list-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Priority</th>
+              <th>Summary</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody class="cat-list-tbody"></tbody>
+        </table>
       </div>
     `;
 
@@ -854,8 +852,12 @@ function renderList(items) {
     });
 
     section.querySelector(".cat-list-header").addEventListener("click", () => {
-      listCollapsed[status] = !listCollapsed[status];
-      renderBoardAndList();
+      const body = section.querySelector(".cat-list-body");
+      const chevron = section.querySelector(".collapse-chevron");
+      const nowCollapsed = body.style.display !== "none";
+      listCollapsed[status] = nowCollapsed;
+      body.style.display = nowCollapsed ? "none" : "";
+      chevron.classList.toggle("rotated", !nowCollapsed);
     });
 
     tbody.querySelectorAll(".list-status-select").forEach((select) => {
