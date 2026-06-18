@@ -26,7 +26,7 @@ let cachedItems = [];
 
 // Active filter + view state
 const filters = { category: "All", priority: "All", status: "All", search: "", creator: "All" };
-let currentView = "kanban";
+let currentView = "overview";
 let doneCollapsed = true;
 let activeMobileCol = 0; // index into STATUS_COLUMNS
 
@@ -46,8 +46,10 @@ const statusFilterGroup = document.getElementById("statusFilterGroup");
 const creatorFilterGroup = document.getElementById("creatorFilterGroup");
 const searchInput = document.getElementById("searchInput");
 
+const overviewViewBtn = document.getElementById("overviewViewBtn");
 const kanbanViewBtn = document.getElementById("kanbanViewBtn");
 const listViewBtn = document.getElementById("listViewBtn");
+const overviewWrap = document.getElementById("overviewWrap");
 const kanbanBoard = document.getElementById("kanbanBoard");
 const listViewWrap = document.getElementById("listViewWrap");
 const listTableBody = document.getElementById("listTableBody");
@@ -170,6 +172,7 @@ function bindEvents() {
     renderBoardAndList();
   });
 
+  overviewViewBtn.addEventListener("click", () => switchView("overview"));
   kanbanViewBtn.addEventListener("click", () => switchView("kanban"));
   listViewBtn.addEventListener("click", () => switchView("list"));
 
@@ -182,10 +185,9 @@ function bindEvents() {
 
 function switchView(view) {
   currentView = view;
+  overviewViewBtn.classList.toggle("active", view === "overview");
   kanbanViewBtn.classList.toggle("active", view === "kanban");
   listViewBtn.classList.toggle("active", view === "list");
-  kanbanBoard.style.display = view === "kanban" ? "grid" : "none";
-  listViewWrap.style.display = view === "list" ? "block" : "none";
   renderBoardAndList();
 }
 
@@ -237,15 +239,14 @@ function renderBoardAndList() {
 
   dashEmptyState.style.display = activeItems.length === 0 ? "block" : "none";
 
-  if (currentView === "kanban") {
-    kanbanBoard.style.display = "block";
-    listViewWrap.style.display = "none";
-    renderKanban(items);
-  } else {
-    kanbanBoard.style.display = "none";
-    listViewWrap.style.display = "block";
-    renderList(items);
-  }
+  overviewWrap.style.display = currentView === "overview" ? "block" : "none";
+  kanbanBoard.style.display  = currentView === "kanban"   ? "block" : "none";
+  listViewWrap.style.display = currentView === "list"     ? "block" : "none";
+  mobileKanbanTabs.style.display = currentView === "kanban" && isMobile() ? "flex" : "none";
+
+  if (currentView === "overview") renderOverview(items);
+  else if (currentView === "kanban") renderKanban(items);
+  else renderList(items);
 }
 
 function getFilteredItems() {
@@ -438,28 +439,24 @@ function bindKanbanSwipe() {
 }
 
 // ============================================================
-// OVERVIEW BOARDS (two focused boards: New Inputs + High Priority)
+// OVERVIEW — row-based boards (New Inputs + High Priority)
 // ============================================================
 const overviewCollapsed = { newInputs: false, highPriority: false };
 
-function renderKanban(items) {
-  kanbanBoard.innerHTML = "";
-  mobileKanbanTabs.style.display = "none";
-  kanbanBoard.style.display = "block";
+function renderOverview(items) {
+  overviewWrap.innerHTML = "";
 
   const boards = [
     {
       key: "newInputs",
       title: "New Inputs",
-      subtitle: "Not Started",
-      dotColor: "var(--text-muted)",
+      accentColor: "var(--primary)",
       items: items.filter((i) => i.status === "Not Started"),
     },
     {
       key: "highPriority",
       title: "High Priority",
-      subtitle: "High priority · active",
-      dotColor: "var(--badge-urgent)",
+      accentColor: "var(--badge-urgent)",
       items: items.filter((i) => i.priority === "High" && i.status !== "Done"),
     },
   ];
@@ -467,37 +464,146 @@ function renderKanban(items) {
   boards.forEach((board) => {
     const collapsed = overviewCollapsed[board.key];
     const section = document.createElement("div");
-    section.className = "overview-board";
+    section.className = "ov-board";
 
     section.innerHTML = `
-      <div class="overview-board-header" data-key="${board.key}">
-        <div class="overview-board-title-wrap">
-          <span class="overview-board-dot" style="background:${board.dotColor}"></span>
-          <span class="overview-board-title">${board.title}</span>
-          <span class="overview-board-count">${board.items.length}</span>
+      <div class="ov-board-header" data-key="${board.key}">
+        <div class="ov-board-title-wrap">
+          <span class="ov-board-accent" style="background:${board.accentColor}"></span>
+          <span class="ov-board-title" style="color:${board.accentColor}">${board.title.toUpperCase()}</span>
+          <span class="ov-board-count">(${board.items.length})</span>
         </div>
         <span class="collapse-chevron ${!collapsed ? "rotated" : ""}">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
       </div>
-      <div class="overview-board-body ${collapsed ? "" : "open"}">
-        <div class="overview-cards fade-in-group"></div>
+      <div class="ov-board-body ${collapsed ? "" : "open"}">
+        <div class="ov-rows"></div>
       </div>
     `;
 
-    const cardsWrap = section.querySelector(".overview-cards");
+    const rowsWrap = section.querySelector(".ov-rows");
+
     if (board.items.length === 0) {
-      cardsWrap.innerHTML = `<div class="kanban-empty">All clear here</div>`;
+      rowsWrap.innerHTML = `<div class="ov-empty">All clear here</div>`;
     } else {
-      board.items.forEach((item) => cardsWrap.appendChild(buildItemCard(item)));
+      board.items.forEach((item) => rowsWrap.appendChild(buildOverviewRow(item)));
     }
 
-    section.querySelector(".overview-board-header").addEventListener("click", () => {
+    section.querySelector(".ov-board-header").addEventListener("click", () => {
       overviewCollapsed[board.key] = !overviewCollapsed[board.key];
       renderBoardAndList();
     });
 
-    kanbanBoard.appendChild(section);
+    overviewWrap.appendChild(section);
+  });
+}
+
+function buildOverviewRow(item) {
+  const row = document.createElement("div");
+  row.className = "ov-row";
+  row.dataset.id = item.id;
+
+  const session = getSession();
+  const isOtherUser = item.created_by_name && (!session || String(item.created_by) !== String(session.id));
+  const creatorChip = isOtherUser
+    ? `<span class="ov-tag ov-tag-creator">${escapeHtml(item.created_by_name)}</span>`
+    : "";
+
+  row.innerHTML = `
+    <div class="ov-row-left">
+      <span class="ov-row-circle"></span>
+      <span class="ov-row-text">${escapeHtml(item.summary || item.text)}</span>
+    </div>
+    <div class="ov-row-right">
+      <span class="ov-tag ov-tag-cat ${categoryClass(item.category)}">${item.category}</span>
+      <span class="ov-tag ov-tag-priority ${item.priority.toLowerCase()}">${item.priority}</span>
+      ${creatorChip}
+      <select class="status-select ov-status-select" data-id="${item.id}">
+        ${STATUS_COLUMNS.map((col) => `<option value="${col.key}" ${col.key === item.status ? "selected" : ""}>${col.label}</option>`).join("")}
+      </select>
+      <span class="ov-tag ov-tag-date" data-timestamp="${item.timestamp}">${relativeTime(item.timestamp)}</span>
+    </div>
+  `;
+
+  row.querySelector(".ov-status-select").addEventListener("change", async (e) => {
+    e.stopPropagation();
+    const newStatus = e.target.value;
+    try {
+      await patchItem(item.id, { status: newStatus });
+      item.status = newStatus;
+      item.completed_at = newStatus === "Done" ? new Date().toISOString() : null;
+      renderStats(false);
+      renderHealthBar();
+      renderBoardAndList();
+    } catch (err) { console.error(err); }
+  });
+
+  row.addEventListener("click", (e) => {
+    if (e.target.closest(".ov-status-select")) return;
+    openItemModal(item, (updated) => {
+      Object.assign(item, updated);
+      renderStats(false);
+      renderHealthBar();
+      renderBoardAndList();
+    });
+  });
+
+  return row;
+}
+
+// ============================================================
+// KANBAN BOARD (status columns)
+// ============================================================
+function renderKanban(items) {
+  kanbanBoard.innerHTML = "";
+  const mobile = isMobile();
+  renderMobileKanbanTabs(items);
+
+  STATUS_COLUMNS.forEach((col, idx) => {
+    const columnItems = items.filter((i) => i.status === col.key);
+    const isDone = col.key === "Done";
+
+    const columnEl = document.createElement("div");
+    columnEl.className = `kanban-column ${col.colClass}` + (isDone ? " collapsible" : "");
+
+    if (mobile) {
+      columnEl.style.display = idx === activeMobileCol ? "" : "none";
+      if (idx === activeMobileCol) columnEl.classList.add("mobile-active");
+    }
+
+    const chevronSvg = `
+      <span class="collapse-chevron ${isDone && !doneCollapsed ? "rotated" : ""}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>`;
+
+    columnEl.innerHTML = `
+      <div class="kanban-column-header">
+        <span class="kanban-column-title">${col.label}</span>
+        <div class="kanban-column-header-right">
+          <span class="kanban-count ${isDone ? "done-count" : ""}">${columnItems.length}</span>
+          ${isDone ? chevronSvg : ""}
+        </div>
+      </div>
+      <div class="kanban-cards fade-in-group"></div>`;
+
+    const cardsWrap = columnEl.querySelector(".kanban-cards");
+    if (isDone && doneCollapsed && !mobile) {
+      cardsWrap.innerHTML = `<div class="done-collapsed-placeholder">${columnItems.length} completed — click to view</div>`;
+    } else if (columnItems.length === 0) {
+      cardsWrap.innerHTML = `<div class="kanban-empty">No items</div>`;
+    } else {
+      columnItems.forEach((item) => cardsWrap.appendChild(buildItemCard(item)));
+    }
+
+    if (isDone && !mobile) {
+      columnEl.querySelector(".kanban-column-header").addEventListener("click", () => {
+        doneCollapsed = !doneCollapsed;
+        renderBoardAndList();
+      });
+    }
+
+    kanbanBoard.appendChild(columnEl);
   });
 }
 

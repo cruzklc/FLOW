@@ -187,16 +187,20 @@
       </div>
 
       <div class="view-toggle">
-        <button class="view-toggle-btn active" id="kanbanViewBtn">Overview</button>
+        <button class="view-toggle-btn active" id="overviewViewBtn">Overview</button>
+        <button class="view-toggle-btn" id="kanbanViewBtn">Kanban</button>
         <button class="view-toggle-btn" id="listViewBtn">List</button>
       </div>
     </div>
+
+    <!-- Overview (row-based boards) -->
+    <section id="overviewWrap"></section>
 
     <!-- Mobile kanban column tabs (hidden on desktop) -->
     <div class="mobile-kanban-tabs" id="mobileKanbanTabs" aria-hidden="true"></div>
 
     <!-- Kanban board -->
-    <section class="kanban-board" id="kanbanBoard"></section>
+    <section class="kanban-board" id="kanbanBoard" style="display:none;"></section>
 
     <!-- List view -->
     <section class="list-view-wrap" id="listViewWrap" style="display:none;">
