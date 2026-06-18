@@ -226,6 +226,7 @@ function setupVoiceRecognition() {
     if (event.error === "no-speech") return;
     if (event.error === "aborted") return;
     if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      localStorage.removeItem(MIC_ASKED_KEY);
       stopRecordingUI();
       resetVoiceUI();
       return;
