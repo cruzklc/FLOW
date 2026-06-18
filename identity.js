@@ -35,7 +35,12 @@ function initIdentity(onReady) {
   const session = getSession();
   if (session && session.id && session.name) {
     applySidebarUser(session);
-    onReady();
+    // Load and apply this user's saved theme, then run the page
+    if (typeof loadUserTheme === "function") {
+      loadUserTheme(session.id).then(onReady);
+    } else {
+      onReady();
+    }
     return;
   }
   showIdentityModal(onReady);
@@ -143,6 +148,11 @@ function showIdentityModal(onReady) {
 
       setSession(user.id, user.name);
       applySidebarUser(user);
+
+      // Load this user's theme before continuing
+      if (typeof loadUserTheme === "function") {
+        await loadUserTheme(user.id);
+      }
 
       // Dismiss modal with animation
       backdrop.classList.remove("visible");
