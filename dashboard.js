@@ -30,6 +30,10 @@ let currentView = "overview";
 let doneCollapsed = true;
 let activeMobileCol = 0; // index into STATUS_COLUMNS
 
+// Bulk selection state
+let selectionMode = false;
+let selectedIds = new Set();
+
 // ---- DOM REFERENCES ----
 const inboxBadge = document.getElementById("inboxBadge");
 const statActive = document.getElementById("statActive");
@@ -57,6 +61,15 @@ const dashEmptyState = document.getElementById("dashEmptyState");
 const mobileKanbanTabs = document.getElementById("mobileKanbanTabs");
 const sidebar = document.getElementById("sidebar");
 const sidebarToggle = document.getElementById("sidebarToggle");
+
+const selectModeBtn = document.getElementById("selectModeBtn");
+const bulkBar = document.getElementById("bulkBar");
+const bulkCount = document.getElementById("bulkCount");
+const bulkSelectAllBtn = document.getElementById("bulkSelectAllBtn");
+const bulkStatusSelect = document.getElementById("bulkStatusSelect");
+const bulkArchiveBtn = document.getElementById("bulkArchiveBtn");
+const bulkDeleteBtn = document.getElementById("bulkDeleteBtn");
+const bulkClearBtn = document.getElementById("bulkClearBtn");
 
 const quickAddBtn = document.getElementById("quickAddBtn");
 const quickAddBackdrop = document.getElementById("quickAddBackdrop");
@@ -150,6 +163,105 @@ function updateFilterActiveDot() {
   filterActiveDot.classList.toggle("visible", hasActiveFilter);
 }
 
+// ============================================================
+// BULK SELECTION
+// ============================================================
+function toggleSelectionMode() {
+  selectionMode = !selectionMode;
+  if (!selectionMode) {
+    selectedIds.clear();
+    updateBulkBar();
+  }
+  selectModeBtn.classList.toggle("active", selectionMode);
+  document.body.classList.toggle("selection-mode", selectionMode);
+  renderBoardAndList();
+}
+
+function toggleSelectItem(id) {
+  const key = String(id);
+  if (selectedIds.has(key)) selectedIds.delete(key);
+  else selectedIds.add(key);
+  updateBulkBar();
+  // Update checkbox visuals without full re-render
+  document.querySelectorAll(`[data-id="${key}"] .item-checkbox, [data-id="${key}"] .ov-row-checkbox, [data-id="${key}"] .list-row-checkbox`).forEach((cb) => {
+    cb.classList.toggle("checked", selectedIds.has(key));
+  });
+  document.querySelectorAll(`[data-id="${key}"].item-card, [data-id="${key}"].ov-row`).forEach((el) => {
+    el.classList.toggle("selected", selectedIds.has(key));
+  });
+  document.querySelectorAll(`tr[data-id="${key}"]`).forEach((el) => {
+    el.classList.toggle("selected", selectedIds.has(key));
+  });
+}
+
+function updateBulkBar() {
+  const count = selectedIds.size;
+  bulkCount.textContent = `${count} selected`;
+  bulkBar.classList.toggle("visible", count > 0 && selectionMode);
+}
+
+function selectAll() {
+  const items = getFilteredItems();
+  items.forEach((i) => selectedIds.add(String(i.id)));
+  updateBulkBar();
+  renderBoardAndList();
+}
+
+async function bulkSetStatus(status) {
+  if (!selectedIds.size || !status) return;
+  const ids = [...selectedIds];
+  try {
+    await Promise.all(ids.map((id) => patchItem(id, { status })));
+    ids.forEach((id) => {
+      const item = cachedItems.find((i) => String(i.id) === id);
+      if (item) {
+        item.status = status;
+        item.completed_at = status === "Done" ? new Date().toISOString() : null;
+      }
+    });
+    selectedIds.clear();
+    updateBulkBar();
+    renderAll();
+  } catch (err) {
+    console.error("bulk status error:", err);
+  }
+}
+
+async function bulkArchive() {
+  if (!selectedIds.size) return;
+  const ids = [...selectedIds];
+  try {
+    await Promise.all(ids.map((id) => patchItem(id, { archived: true })));
+    ids.forEach((id) => {
+      const item = cachedItems.find((i) => String(i.id) === id);
+      if (item) item.archived = true;
+    });
+    selectedIds.clear();
+    updateBulkBar();
+    renderAll();
+  } catch (err) {
+    console.error("bulk archive error:", err);
+  }
+}
+
+async function bulkDelete() {
+  if (!selectedIds.size) return;
+  const count = selectedIds.size;
+  if (!confirm(`Delete ${count} item${count === 1 ? "" : "s"}? This cannot be undone.`)) return;
+  const ids = [...selectedIds];
+  try {
+    await Promise.all(ids.map((id) =>
+      fetch(`/api/items/${id}`, { method: "DELETE" })
+    ));
+    cachedItems = cachedItems.filter((i) => !ids.includes(String(i.id)));
+    selectedIds.clear();
+    updateBulkBar();
+    renderAll();
+  } catch (err) {
+    console.error("bulk delete error:", err);
+  }
+}
+
 function bindEvents() {
   sidebarToggle.addEventListener("click", () => sidebar.classList.toggle("open"));
 
@@ -175,6 +287,34 @@ function bindEvents() {
   overviewViewBtn.addEventListener("click", () => switchView("overview"));
   kanbanViewBtn.addEventListener("click", () => switchView("kanban"));
   listViewBtn.addEventListener("click", () => switchView("list"));
+
+  selectModeBtn.addEventListener("click", toggleSelectionMode);
+  bulkSelectAllBtn.addEventListener("click", selectAll);
+  bulkStatusSelect.addEventListener("change", () => {
+    const val = bulkStatusSelect.value;
+    if (val) {
+      bulkSetStatus(val);
+      bulkStatusSelect.value = "";
+    }
+  });
+  bulkArchiveBtn.addEventListener("click", bulkArchive);
+  bulkDeleteBtn.addEventListener("click", bulkDelete);
+  bulkClearBtn.addEventListener("click", () => {
+    selectedIds.clear();
+    updateBulkBar();
+    renderBoardAndList();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && selectionMode) {
+      selectionMode = false;
+      selectedIds.clear();
+      selectModeBtn.classList.remove("active");
+      document.body.classList.remove("selection-mode");
+      updateBulkBar();
+      renderBoardAndList();
+    }
+  });
 
   quickAddBtn.addEventListener("click", openQuickAdd);
   quickAddBackdrop.addEventListener("click", (e) => {
@@ -510,8 +650,14 @@ function buildOverviewRow(item) {
     ? `<span class="ov-tag ov-tag-creator">${escapeHtml(item.created_by_name)}</span>`
     : "";
 
+  const isSelected = selectedIds.has(String(item.id));
+  if (isSelected) row.classList.add("selected");
+
   row.innerHTML = `
     <div class="ov-row-left">
+      <div class="ov-row-checkbox${isSelected ? " checked" : ""}">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
       <span class="ov-row-circle"></span>
       <span class="ov-row-text">${escapeHtml(item.summary || item.text)}</span>
     </div>
@@ -541,6 +687,7 @@ function buildOverviewRow(item) {
 
   row.addEventListener("click", (e) => {
     if (e.target.closest(".ov-status-select")) return;
+    if (selectionMode) { toggleSelectItem(item.id); return; }
     openItemModal(item, (updated) => {
       Object.assign(item, updated);
       renderStats(false);
@@ -622,7 +769,8 @@ function buildItemCard(item) {
 
   const priorityClass = "priority-" + item.priority.toLowerCase();
 
-  card.className = `item-card ${priorityClass} ${glowClass}`;
+  const isSelected = selectedIds.has(String(item.id));
+  card.className = `item-card ${priorityClass} ${glowClass}${isSelected ? " selected" : ""}`;
   card.dataset.id = item.id;
 
   const session = getSession();
@@ -632,6 +780,9 @@ function buildItemCard(item) {
     : "";
 
   card.innerHTML = `
+    <div class="item-checkbox${isSelected ? " checked" : ""}">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
     <div class="item-card-badges">
       <span class="badge-pill ${categoryClass(item.category)} editable-badge" title="Click to change category">${item.category}</span>
       <span class="badge-pill priority ${item.priority.toLowerCase()} editable-badge" title="Click to change priority">${item.priority}</span>
@@ -740,8 +891,15 @@ function buildItemCard(item) {
     });
   });
 
+  // Checkbox click in selection mode
+  card.querySelector(".item-checkbox").addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleSelectItem(item.id);
+  });
+
   // Card body click → detail modal (exclude controls)
   card.addEventListener("click", (e) => {
+    if (selectionMode) { toggleSelectItem(item.id); return; }
     if (
       e.target.closest(".item-card-badges") ||
       e.target.closest(".item-card-controls") ||
@@ -821,6 +979,7 @@ function renderList(items) {
         <table class="list-table">
           <thead>
             <tr>
+              <th class="list-cb-col"></th>
               <th>Category</th>
               <th>Priority</th>
               <th>Summary</th>
@@ -837,7 +996,14 @@ function renderList(items) {
     statusItems.forEach((item) => {
       const tr = document.createElement("tr");
       tr.dataset.id = item.id;
+      const isSel = selectedIds.has(String(item.id));
+      if (isSel) tr.classList.add("selected");
       tr.innerHTML = `
+        <td class="list-cb-col">
+          <div class="list-row-checkbox${isSel ? " checked" : ""}">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </td>
         <td><span class="badge-pill ${categoryClass(item.category)}" style="font-size:10px;padding:2px 8px;">${item.category}</span></td>
         <td><span class="badge-pill priority ${item.priority.toLowerCase()}" style="font-size:10px;padding:2px 8px;">${item.priority}</span></td>
         <td class="list-text-cell" title="${escapeHtml(item.text)}">${escapeHtml(item.summary || item.text)}</td>
@@ -848,6 +1014,20 @@ function renderList(items) {
           </button>
         </td>
       `;
+      tr.querySelector(".list-row-checkbox").addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleSelectItem(item.id);
+      });
+      tr.addEventListener("click", (e) => {
+        if (e.target.closest(".list-archive-btn")) return;
+        if (selectionMode) { toggleSelectItem(item.id); return; }
+        openItemModal(item, (updated) => {
+          Object.assign(item, updated);
+          renderStats(false);
+          renderHealthBar();
+          renderBoardAndList();
+        });
+      });
       tbody.appendChild(tr);
     });
 
