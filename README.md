@@ -1,6 +1,6 @@
 # FLOW
 
-FLOW is a voice-first thought-capture tool built for a CEO and their right hand. Speak or type whatever's on your mind, and Claude automatically sorts it into the right category and priority — turning scattered thoughts into an organized, shared dashboard you can both work from.
+FLOW is a voice-first thought-capture tool built for a CEO and their right hand or team. Speak or type whatever's on your mind, and Claude automatically sorts it into the right category and priority — turning scattered thoughts into an organized, shared dashboard you can both work from.
 
 ## What it does
 
