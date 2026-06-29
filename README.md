@@ -15,6 +15,9 @@ FLOW is a voice-first thought-capture tool built for a CEO and their right hand.
 
 - <img width="1512" height="838" alt="Screenshot 2026-06-29 at 12 13 03 PM" src="https://github.com/user-attachments/assets/53aca124-8b89-42a8-b543-3ca6996a3bfa" />
 
+<img width="1502" height="860" alt="Screenshot 2026-06-29 at 12 15 55 PM" src="https://github.com/user-attachments/assets/e62f2d1f-42ef-420b-a13f-79b661283c1d" />
+
+
 
 ## Tech stack
 
@@ -22,3 +25,5 @@ FLOW is a voice-first thought-capture tool built for a CEO and their right hand.
 - **Backend:** Node.js serverless functions, deployed on Vercel
 - **Database:** Postgres, hosted on Neon
 - **AI:** Claude (Anthropic API) for categorization and thought-splitting
+
+Built solo using Claude Code
